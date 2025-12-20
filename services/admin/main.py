@@ -523,6 +523,33 @@ def get_analytics_overview(
         total_chats = db.query(models.ChatRoom).count()
         total_vitals = db.query(models.Vitals).count()
         
+        # SMS booking stats
+        sms_bookings = 0
+        web_bookings = 0
+        ai_bookings = 0
+        try:
+            sms_bookings = db.query(models.Appointments).filter(
+                models.Appointments.booking_source == "sms"
+            ).count()
+            web_bookings = db.query(models.Appointments).filter(
+                models.Appointments.booking_source == "web"
+            ).count()
+            ai_bookings = db.query(models.Appointments).filter(
+                models.Appointments.booking_source == "ai"
+            ).count()
+        except:
+            pass  # Column may not exist
+        
+        # Today's appointments
+        today = datetime.utcnow().date()
+        today_appointments = 0
+        try:
+            today_appointments = db.query(models.Appointments).filter(
+                func.date(models.Appointments.date_time) == today
+            ).count()
+        except:
+            pass
+        
         return {
             "overview": {
                 "total_users": total_users,
@@ -533,7 +560,11 @@ def get_analytics_overview(
                 "pending_appointments": pending_appointments,
                 "accepted_appointments": accepted_appointments,
                 "total_chats": total_chats,
-                "vitals_recorded": total_vitals
+                "vitals_recorded": total_vitals,
+                "today_appointments": today_appointments,
+                "sms_bookings": sms_bookings,
+                "web_bookings": web_bookings,
+                "ai_bookings": ai_bookings
             },
             "popular_doctors": [
                 {"name": doc[0], "appointment_count": doc[1]} 

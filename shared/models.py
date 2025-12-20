@@ -34,6 +34,7 @@ class User(Base):
     role : Mapped[UserRoles] = mapped_column(Enum(UserRoles), nullable=False)
     date_of_birth : Mapped[DateTime] = mapped_column(DateTime(timezone=True))
     medical_license : Mapped[str] = mapped_column(String(50),nullable=True)
+    phone_number : Mapped[str] = mapped_column(String(15), nullable=True, index=True)  # For SMS
 
     family_connections: Mapped[List["FamilyConnections"]] = relationship(
         back_populates="patient",
@@ -182,6 +183,7 @@ class Appointments(Base):
     severity: Mapped[int] = mapped_column(default=1) # 1-5 scale
     triage_id: Mapped[str] = mapped_column(nullable=True)
     delay_minutes: Mapped[int] = mapped_column(default=0)
+    booking_source: Mapped[str] = mapped_column(String(20), default="web", nullable=True)  # web, sms, ai
 
 
 # Update Vitals model

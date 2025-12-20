@@ -225,6 +225,29 @@ services:
       - telehealth-network
     restart: unless-stopped
 
+  # SMS Gateway Service (Offline Access)
+  sms-service:
+    build:
+      context: services/sms
+      dockerfile: Dockerfile
+    container_name: sms-service
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:8000
+      APPOINTMENT_SERVICE_URL: http://appointment-service:8000
+      DOCTOR_SERVICE_URL: http://doctor-service:8000
+      SMS_GATEWAY_URL: ${SMS_GATEWAY_URL:-http://10.12.147.158:8080/message}
+      SMS_GATEWAY_USERNAME: ${SMS_GATEWAY_USERNAME:-sms}
+      SMS_GATEWAY_PASSWORD: ${SMS_GATEWAY_PASSWORD:-DtzZ8GAx}
+    ports:
+      - "8010:8000"
+    depends_on:
+      - auth-service
+      - appointment-service
+      - doctor-service
+    networks:
+      - telehealth-network
+    restart: unless-stopped
+
   # API Gateway
   api-gateway:
     build:

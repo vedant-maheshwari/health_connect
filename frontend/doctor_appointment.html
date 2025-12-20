@@ -406,9 +406,11 @@
         <p><strong>Status:</strong> <span id="modal-status"></span></p>
         <div id="modal-severity-row" style="margin-top:10px; padding-top:10px; border-top:1px solid #eee;">
           <p><strong>Severity:</strong> <span id="modal-severity"></span></p>
+          <p id="modal-source-row" style="display:none;"><strong>Booked via:</strong> <span id="modal-source"
+              style="background:#17a2b8; color:white; padding:2px 8px; border-radius:4px; font-size:12px;"></span></p>
           <button id="reviewTriageBtn" class="btn"
             style="background:#673ab7; color:white; width:100%; margin-top:10px; display:none;">
-            🩺 Review AI Triage Case
+            Review AI Triage Case
           </button>
         </div>
       </div>
@@ -525,7 +527,8 @@
               status: ev.status,
               patient_name: ev.title,
               severity: ev.severity,
-              triage_id: ev.triage_id
+              triage_id: ev.triage_id,
+              booking_source: ev.booking_source
             }
           };
         });
@@ -554,6 +557,16 @@
             // Severity & Triage
             const sevEl = document.getElementById("modal-severity");
             sevEl.textContent = props.severity ? `${props.severity}/5` : "N/A";
+
+            // Booking Source (SMS indicator)
+            const sourceRow = document.getElementById("modal-source-row");
+            const sourceEl = document.getElementById("modal-source");
+            if (props.booking_source && props.booking_source !== "web") {
+              sourceRow.style.display = "block";
+              sourceEl.textContent = props.booking_source.toUpperCase();
+            } else {
+              sourceRow.style.display = "none";
+            }
 
             const reviewBtn = document.getElementById("reviewTriageBtn");
             if (props.triage_id) {

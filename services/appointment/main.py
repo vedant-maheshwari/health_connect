@@ -3,6 +3,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timedelta, time as dt_time
@@ -178,6 +179,25 @@ async def get_available_appointments(
     
     # Convert time objects to strings
     return [slot.strftime("%H:%M:%S") for slot in slots]
+
+
+@app.get("/available_slots")
+async def get_available_slots(
+    doctor_id: int = Query(...),
+    date: str = Query(...),
+    severity: int = Query(1),
+    db: Session = Depends(get_db)
+):
+    """Get available slots for a doctor on a specific date (SMS friendly)"""
+    try:
+        date_obj = datetime.fromisoformat(date)
+    except ValueError:
+        date_obj = datetime.strptime(date, "%Y-%m-%d")
+    
+    slots = await get_doctor_free_slots(doctor_id, date_obj, db, severity)
+    
+    # Return formatted time strings
+    return [slot.strftime("%H:%M") for slot in slots]
 
 
 @app.get("/find_best_slot")
@@ -425,6 +445,63 @@ async def create_appointment(
     }
 
 
+class SMSBookingRequest(BaseModel):
+    """Request model for SMS-based booking (internal use only)"""
+    patient_id: int
+    doctor_id: int
+    date_time: str
+    severity: int = 1
+
+
+@app.post("/internal/create_appointment")
+async def create_appointment_internal(
+    request: SMSBookingRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Internal endpoint for SMS service to create appointments.
+    Does not require JWT auth - only accessible from internal network.
+    """
+    # Verify patient exists
+    patient = db.query(models.User).filter(models.User.id == request.patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    # Verify doctor exists
+    doctor = db.query(models.User).filter(
+        models.User.id == request.doctor_id,
+        models.User.role == models.UserRoles.DOCTOR
+    ).first()
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor not found")
+    
+    # Parse datetime
+    try:
+        appointment_dt = datetime.fromisoformat(request.date_time)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date_time format")
+    
+    # Create appointment
+    db_appointment = models.Appointments(
+        patient_id=request.patient_id,
+        doctor_id=request.doctor_id,
+        date_time=appointment_dt,
+        status=models.Status.PENDING,
+        severity=request.severity,
+        booking_source="sms"
+    )
+    
+    db.add(db_appointment)
+    db.commit()
+    db.refresh(db_appointment)
+    
+    return {
+        "message": "Appointment created via SMS",
+        "id": db_appointment.id,
+        "status": db_appointment.status.value
+    }
+
+
 @app.get("/get_all_appointments")
 async def get_all_appointments(
     user_id: int = Depends(get_current_user_id),
@@ -465,7 +542,8 @@ async def get_all_appointments(
             "end": end_str,
             "status": app.status.value,
             "severity": getattr(app, "severity", 1), 
-            "triage_id": getattr(app, "triage_id", None)
+            "triage_id": getattr(app, "triage_id", None),
+            "booking_source": getattr(app, "booking_source", "web")
         })
     
     return result

@@ -158,6 +158,28 @@ async def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
     return user
 
 
+@app.get("/users/by-phone/{phone}")
+async def get_user_by_phone(phone: str, db: Session = Depends(get_db)):
+    """Get user by phone number (for SMS service)"""
+    # Clean phone number (remove spaces, dashes)
+    clean_phone = phone.replace(" ", "").replace("-", "").replace("+", "")
+    
+    # Try exact match first
+    user = db.query(models.User).filter(models.User.phone_number == phone).first()
+    
+    # If not found, try without country code
+    if not user and len(clean_phone) > 10:
+        last_10 = clean_phone[-10:]
+        user = db.query(models.User).filter(
+            models.User.phone_number.endswith(last_10)
+        ).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found for this phone number")
+    
+    return {"id": user.id, "name": user.name, "email": user.email, "role": user.role}
+
+
 @app.get("/users")
 async def get_all_users(db: Session = Depends(get_db)):
     """Get all users (admin only)"""
