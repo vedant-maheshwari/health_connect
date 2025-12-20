@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family invite</title>
+</head>
+
+<body>
+    <h2>Invite Family Members</h2>
+    <form id="invite">
+        <label>invitee email</label>
+        <input type="email" id="email"><br><br>
+
+        <label>relationship</label>
+        <select id="relationship">
+            <option value="spouse">Spouse</option>
+            <option value="sibling">Sibling</option>
+            <option value="parent">Parent</option>
+        </select><br><br>
+
+        <button type="submit">Send Invitation</button>
+
+    </form>
+    <script src="config.js"></script>
+    <script>
+        const API_BASE_URL = API_CONFIG.getApiBaseUrl();
+        document.getElementById('invite').addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const token = sessionStorage.getItem("token");
+            if (!token) {
+                alert("You must login first!");
+                window.location.href = "login.html";
+                return;
+            }
+
+            const email = document.getElementById('email').value;
+            const relation = document.getElementById('relationship').value;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/family/send_invitation`, {
+                    method: 'POST',
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + token
+                    },
+                    body: JSON.stringify({ 'invitee_email': email, 'relationship_type': relation })
+                });
+                const data = await response.json();
+                console.log(data);
+                alert(data);
+            }
+            catch (error) {
+                console.error(error);
+                alert("Failed to send invitation");
+            }
+
+        });
+    </script>
+</body>
+
+</html>

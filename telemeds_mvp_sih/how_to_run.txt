@@ -1,0 +1,23 @@
+https://github.com/capcom6/android-sms-gateway?tab=readme-ov-file
+download the app from this repo
+
+GATEWAY_URL = "http://192.168.255.174:8080/message"  # Replace with your gateway IP
+USERNAME = "sms"
+PASSWORD = "exUPS8D1"
+
+change as per the gateway on your phone
+
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+ngrok http 8000 -> on a different terminal
+
+curl -X POST -u sms:VOWArcCl \
+-H "Content-Type: application/json" \
+-d '{"id":"my-webhook-1","event":"sms:received","url":"https://9add42f6b803.ngrok-free.app/sms"}' \
+http://192.168.1.9:8080/webhooks
+
+in url insert your ngrok link with path /sms
+change the local ip address and port
+change the password
+
+curl -u sms:VOWArcCl http://192.168.1.9:8080/webhooks -> to check 

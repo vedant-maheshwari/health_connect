@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Family Member</title>
+    <style>
+        body {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            background: #fff;
+            padding: 30px 40px;
+            border-radius: 16px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+            color: #f57c00;
+        }
+
+        label {
+            display: block;
+            text-align: left;
+            margin-top: 10px;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        input:focus {
+            border-color: #f57c00;
+            box-shadow: 0 0 5px rgba(245, 124, 0, 0.3);
+        }
+
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            border: none;
+            background-color: #f57c00;
+            color: #fff;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: #e65100;
+        }
+
+        .login-link {
+            display: block;
+            margin-top: 15px;
+            color: #f57c00;
+            text-decoration: none;
+        }
+
+        .login-link:hover {
+            text-decoration: underline;
+        }
+
+        .role-links {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .role-links a {
+            color: #666;
+            text-decoration: none;
+            font-size: 0.9rem;
+            margin: 0 5px;
+        }
+
+        .role-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>👨‍👩‍👧‍👦 Register as Family Member</h2>
+        <form id="registerForm">
+            <label>Name</label>
+            <input type="text" id="name" required>
+
+            <label>Email</label>
+            <input type="email" id="email" required>
+
+            <label>Password</label>
+            <input type="password" id="password" required>
+
+            <label>Date of Birth</label>
+            <input type="date" id="dob" required>
+
+            <button type="submit">Register as Family Member</button>
+        </form>
+        <a href="login.html" class="login-link">Already have an account? Login here</a>
+
+        <div class="role-links">
+            <span>Register as:</span>
+            <a href="register.html">Patient</a> |
+            <a href="register_doctor.html">Doctor</a>
+        </div>
+    </div>
+    <script src="config.js"></script>
+    <script>
+        const API_BASE_URL = API_CONFIG.getApiBaseUrl();
+        document.getElementById('registerForm').addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const dob = document.getElementById('dob').value;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/register_family`, {
+                    method: 'POST',
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        name: name,
+                        email: email,
+                        password: password,
+                        date_of_birth: dob
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || "Registration failed");
+                }
+
+                const data = await response.json();
+                alert("Registration successful! You can now login.");
+                window.location.href = "login.html";
+
+            } catch (err) {
+                console.error(err);
+                alert(err.message);
+            }
+        });
+    </script>
+</body>
+
+</html>

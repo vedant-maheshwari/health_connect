@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Chat Room - TeleHealth Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: #f8fafc;
+            color: #1e293b;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 0;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #6366f1;
+            text-decoration: none;
+        }
+        
+        .back-btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .back-btn:hover {
+            background: #5b21b6;
+            transform: translateY(-1px);
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.connecting {
+            background: #f59e0b;
+        }
+        
+        .status-dot.disconnected {
+            background: #ef4444;
+            animation: none;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .chat-container {
+            flex: 1;
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .chat-header {
+            background: #f8fafc;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .chat-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 0.25rem;
+        }
+        
+        .chat-subtitle {
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+        
+        #messages {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            min-height: 400px;
+        }
+        
+        .message-bubble {
+            max-width: 70%;
+            border-radius: 1rem;
+            padding: 0.75rem 1rem;
+            word-wrap: break-word;
+            position: relative;
+        }
+        
+        .message-bubble.own {
+            align-self: flex-end;
+            background: #6366f1;
+            color: white;
+            border-bottom-right-radius: 0.25rem;
+        }
+        
+        .message-bubble.other {
+            align-self: flex-start;
+            background: white;
+            color: #1e293b;
+            border: 1px solid #e2e8f0;
+            border-bottom-left-radius: 0.25rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .message-content {
+            margin-bottom: 0.25rem;
+            line-height: 1.5;
+        }
+        
+        .message-meta {
+            font-size: 0.75rem;
+            opacity: 0.7;
+            text-align: right;
+        }
+        
+        .message-bubble.other .message-meta {
+            color: #64748b;
+        }
+        
+        .empty-chat {
+            text-align: center;
+            color: #64748b;
+            margin: auto;
+        }
+        
+        .empty-chat h3 {
+            color: #1e293b;
+            margin-bottom: 0.5rem;
+        }
+        
+        .loading-messages {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: auto;
+            color: #64748b;
+        }
+        
+        .loading-spinner {
+            width: 2rem;
+            height: 2rem;
+            border: 3px solid #e2e8f0;
+            border-top: 3px solid #6366f1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        #inputRow {
+            background: white;
+            border-top: 1px solid #e2e8f0;
+            padding: 1rem 1.5rem;
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+        
+        #txt {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 1.5rem;
+            outline: none;
+            font-family: inherit;
+            font-size: 1rem;
+            resize: none;
+            min-height: 2.5rem;
+            max-height: 6rem;
+            transition: border-color 0.2s;
+        }
+        
+        #txt:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        
+        #send {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 1.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        
+        #send:hover:not(:disabled) {
+            background: #5b21b6;
+            transform: translateY(-1px);
+        }
+        
+        #send:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .today-label {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.875rem;
+            margin: 1rem 0;
+            position: relative;
+        }
+        
+        .today-label::before,
+        .today-label::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 45%;
+            height: 1px;
+            background: #e2e8f0;
+        }
+        
+        .today-label::before { left: 0; }
+        .today-label::after { right: 0; }
+        
+        .system-message {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.875rem;
+            font-style: italic;
+            margin: 1rem 0;
+        }
+        
+        @media (max-width: 768px) {
+            .header-content {
+                padding: 0 1rem;
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .back-btn {
+                align-self: flex-start;
+            }
+            
+            .chat-container {
+                height: calc(100vh - 120px);
+            }
+            
+            #messages {
+                padding: 1rem;
+            }
+            
+            #inputRow {
+                padding: 1rem;
+            }
+            
+            .message-bubble {
+                max-width: 85%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <a href="index.html" class="logo">TeleHealth Platform</a>
+            <button onclick="goBack()" class="back-btn">
+                ← Back to Messages
+            </button>
+            <div class="connection-status">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Connecting...</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="chat-title" id="chatTitle">Chat Room</div>
+            <div class="chat-subtitle">Patient_doctor</div>
+        </div>
+        
+        <div id="messages">
+            <div class="loading-messages">
+                <div class="loading-spinner"></div>
+                <p>Loading conversation...</p>
+            </div>
+        </div>
+
+        <div id="inputRow">
+            <textarea id="txt" placeholder="Type your message..." rows="1"></textarea>
+            <button id="send">Send</button>
+        </div>
+    </div>
+    <script src="config.js"></script>
+    <script>
+
+       const API_BASE_URL = API_CONFIG.getApiBaseUrl();
+        const API_BASE_URL_without_http = API_CONFIG.API_BASE_URL_without_http(); // Change if your backend runs elsewhere
+        function goBack() {
+            const role = sessionStorage.getItem("role");
+            if (role === "doctor") {
+                window.location.href = "doctor_dashboard.html";
+            } else if (role === "patient") {
+                window.location.href = "patient_dashboard.html";
+            } else if (role === "family") {
+                window.location.href = "family_dashboard.html";
+            } else if (role === "admin") {
+                window.location.href = "admin_dashboard.html";
+            } else {
+                window.location.href = "chat.html";
+            }
+        }
+
+        const token = sessionStorage.getItem("token");
+        const userId = Number(sessionStorage.getItem("user_id"));
+        const chatId = Number(new URLSearchParams(window.location.search).get("chatId"));
+        const messagesDiv = document.getElementById("messages");
+        const txt = document.getElementById("txt");
+        const sendBtn = document.getElementById("send");
+        const statusDot = document.getElementById("statusDot");
+        const statusText = document.getElementById("statusText");
+
+        if (!token || !chatId) { 
+            alert("Login and chatId required"); 
+            location.href = "login.html"; 
+        }
+
+        // Update page title
+        document.getElementById("chatTitle").textContent = `Chat Room ${chatId}`;
+
+        function updateConnectionStatus(status, text) {
+            statusDot.className = `status-dot ${status}`;
+            statusText.textContent = text;
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+        }
+
+        function showMessage(msg) {
+            // Remove loading state if present
+            const loadingMessages = document.querySelector('.loading-messages');
+            if (loadingMessages) {
+                loadingMessages.remove();
+            }
+
+            const bubble = document.createElement("div");
+            const isOwn = Number(msg.sender_id) === userId;
+            bubble.className = `message-bubble ${isOwn ? "own" : "other"}`;
+            
+            let timestamp = "";
+            try {
+                timestamp = new Date(msg.timestamp).toLocaleString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    hour12: true, 
+                    day: 'numeric', 
+                    month: 'short' 
+                });
+            } catch (e) { 
+                timestamp = msg.timestamp || 'now';
+            }
+            
+            bubble.innerHTML = `
+                <div class="message-content">${escapeHtml(msg.content)}</div>
+                <div class="message-meta">${timestamp}</div>
+            `;
+            
+            messagesDiv.appendChild(bubble);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/chats/${chatId}/messages`, {
+                    headers: { "Authorization": "Bearer " + token }
+                });
+                
+                if (!res.ok) { 
+                    throw new Error("Failed to load history");
+                }
+                
+                const msgs = await res.json();
+                
+                // Clear loading state
+                messagesDiv.innerHTML = "";
+                
+                if (msgs.length === 0) {
+                    messagesDiv.innerHTML = `
+                        <div class="empty-chat">
+                            <h3>Start the conversation</h3>
+                            <p>Send a message to begin chatting</p>
+                        </div>
+                    `;
+                } else {
+                    // Add today label
+                    messagesDiv.innerHTML = '<div class="today-label">Today</div>';
+                    
+                    // Add system message
+                    messagesDiv.innerHTML += '<div class="system-message">Admin User joined the chat<br>11:12 AM</div>';
+                    
+                    msgs.forEach(m => showMessage(m));
+                }
+                
+            } catch (error) {
+                console.error('Error loading history:', error);
+                messagesDiv.innerHTML = `
+                    <div class="empty-chat">
+                        <h3>Failed to load messages</h3>
+                        <p>Please check your connection and refresh</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Get short-lived ws token, then connect
+        async function connectWS() {
+            try {
+                updateConnectionStatus('connecting', 'Connecting...');
+                
+                const tRes = await fetch(`${API_BASE_URL}/ws-token`, {
+                    method: "POST",
+                    headers: { "Authorization": "Bearer " + token }
+                });
+                
+                if (!tRes.ok) { 
+                    throw new Error("Cannot get ws token");
+                }
+                
+                const { ws_token } = await tRes.json();
+                const ws = new WebSocket(`wss://${API_BASE_URL_without_http}/chats/ws/${chatId}?ws_token=${ws_token}`);
+
+                ws.onopen = () => {
+                    console.log("WebSocket connected");
+                    updateConnectionStatus('connected', 'Connected');
+                    sendBtn.disabled = false;
+                };
+                
+                ws.onmessage = (ev) => {
+                    const msg = JSON.parse(ev.data);
+                    showMessage(msg);
+                };
+                
+                ws.onclose = () => {
+                    console.log("WebSocket closed");
+                    updateConnectionStatus('disconnected', 'Disconnected');
+                    sendBtn.disabled = true;
+                    
+                    // Try to reconnect after 3 seconds
+                    setTimeout(() => {
+                        updateConnectionStatus('connecting', 'Reconnecting...');
+                        connectWS();
+                    }, 3000);
+                };
+                
+                ws.onerror = (error) => {
+                    console.error("WebSocket error:", error);
+                    updateConnectionStatus('disconnected', 'Connection error');
+                    sendBtn.disabled = true;
+                };
+                
+                return ws;
+                
+            } catch (error) {
+                console.error('Error connecting WebSocket:', error);
+                updateConnectionStatus('disconnected', 'Failed to connect');
+                sendBtn.disabled = true;
+                return null;
+            }
+        }
+
+        let wsClient = null;
+        (async () => {
+            await loadHistory();
+            wsClient = await connectWS();
+        })();
+
+        // Auto-resize textarea
+        txt.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 96) + 'px';
+            sendBtn.disabled = !this.value.trim() || !wsClient || wsClient.readyState !== WebSocket.OPEN;
+        });
+
+        sendBtn.addEventListener("click", sendMessage);
+        txt.addEventListener("keydown", (e) => { 
+            if (e.key === "Enter" && !e.shiftKey) { 
+                e.preventDefault();
+                sendMessage(); 
+            } 
+        });
+
+        function sendMessage() {
+            const v = txt.value.trim();
+            if (!v || !wsClient || wsClient.readyState !== WebSocket.OPEN) return;
+            
+            wsClient.send(JSON.stringify({ content: v }));
+            txt.value = "";
+            txt.style.height = 'auto';
+            sendBtn.disabled = true;
+        }
+
+        // Initial state
+        sendBtn.disabled = true;
+        updateConnectionStatus('connecting', 'Connecting...');
+    </script>
+</body>
+</html>

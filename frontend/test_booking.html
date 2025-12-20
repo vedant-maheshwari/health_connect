@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Doctor Appointment Booking Test</title>
+  <style>
+    /* your existing styles unchanged */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    .slot {
+      padding: 10px 15px;
+      margin: 5px;
+      border: 2px solid #007bff;
+      cursor: pointer;
+      display: inline-block;
+      border-radius: 6px;
+      background-color: #f8f9fa;
+      transition: all 0.3s ease;
+    }
+    .slot:hover {
+      background-color: #e9ecef;
+    }
+    .slot.reserved {
+      background-color: #dc3545;
+      color: white;
+      border-color: #dc3545;
+      cursor: not-allowed;
+    }
+    .slot.selected {
+      background-color: #28a745;
+      color: white;
+      border-color: #28a745;
+    }
+    .slots-container {
+      margin-top: 20px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      min-height: 100px;
+    }
+    .status {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 4px;
+      display: none;
+    }
+    .status.success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .status.error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .actions {
+      margin-top: 15px;
+    }
+    .websocket-status {
+      padding: 5px 10px;
+      border-radius: 4px;
+      margin-left: 10px;
+      font-size: 12px;
+    }
+    .connected {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .disconnected {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+
+    /* Modal styles */
+    .modal { 
+      position: fixed; 
+      top: 0; left: 0; 
+      width: 100%; height: 100%; 
+      background: rgba(0,0,0,0.5); 
+      display: none; 
+      z-index: 9999;
+    }
+    .modal-content { 
+      background: white; 
+      margin: 10% auto; 
+      padding: 20px; 
+      width: 320px; 
+      border-radius: 8px; 
+      text-align: center; 
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+    .modal-content button {
+      margin: 8px;
+      min-width: 100px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Doctor Appointment Booking Test</h1>
+    
+    <div class="form-group">
+      <label>Doctor ID:</label>
+      <input id="doctorIdInput" type="number" value="3" />
+    </div>
+    
+    <div class="form-group">
+      <label>Date (for finding available slots):</label>
+      <input id="dateInput" type="date" />
+    </div>
+    
+    <div class="form-group">
+      <label>User ID:</label>
+      <input id="userIdInput" type="number" value="1" />
+    </div>
+
+    <div class="form-group">
+      <button id="loadSlotsBtn">Load Available Slots</button>
+      <span id="wsStatus" class="websocket-status disconnected">WebSocket: Disconnected</span>
+    </div>
+
+    <div class="slots-container">
+      <h3>Available Time Slots:</h3>
+      <div id="slotsContainer">
+        <p>Click "Load Available Slots" to see available appointments</p>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="reserveBtn" disabled>Reserve Selected Slot</button>
+      <button id="confirmBtn" disabled>Confirm Reservation</button>
+      <button id="cancelBtn" disabled>Cancel Reservation</button>
+    </div>
+
+    <div id="statusMessage" class="status"></div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div id="confirmModal" class="modal">
+    <div class="modal-content">
+      <p>Slot <span id="modalTime"></span> is reserved for you. What would you like to do?</p>
+      <button id="modalConfirmBtn">Confirm Booking</button>
+      <button id="modalCancelBtn">Cancel Reservation</button>
+      <button id="modalCloseBtn">Close</button>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE_URL = "https://telehealth-webapp-123.azurewebsites.net"; // Change if your backend runs elsewhere
+
+    let wsConnection = null;
+    let selectedSlot = null;
+    let selectedDoctorId = null;
+    let selectedDate = null;
+    let selectedUserId = null;
+    let ownReservedKey = null;  // track own reserved slot key
+
+    const slotsContainer = document.getElementById('slotsContainer');
+    const doctorIdInput = document.getElementById('doctorIdInput');
+    const dateInput = document.getElementById('dateInput');
+    const userIdInput = document.getElementById('userIdInput');
+    const loadSlotsBtn = document.getElementById('loadSlotsBtn');
+    const reserveBtn = document.getElementById('reserveBtn');
+    const confirmBtn = document.getElementById('confirmBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const statusMessage = document.getElementById('statusMessage');
+    const wsStatus = document.getElementById('wsStatus');
+
+    const modal = document.getElementById('confirmModal');
+    const modalTime = document.getElementById('modalTime');
+    const modalConfirmBtn = document.getElementById('modalConfirmBtn');
+    const modalCancelBtn = document.getElementById('modalCancelBtn');
+    const modalCloseBtn = document.getElementById('modalCloseBtn');
+
+    // Set default date to today
+    const today = new Date();
+    dateInput.value = today.toISOString().split('T')[0];
+
+    function showStatus(message, isError = false) {
+      statusMessage.textContent = message;
+      statusMessage.className = `status ${isError ? 'error' : 'success'}`;
+      statusMessage.style.display = 'block';
+      setTimeout(() => {
+        statusMessage.style.display = 'none';
+      }, 5000);
+    }
+
+    function createSlotElement(time) {
+      const el = document.createElement('div');
+      el.textContent = time;
+      el.className = 'slot';
+      el.dataset.time = time;
+      const key = `${selectedDoctorId}:${selectedDate}T${time}`;
+      el.dataset.key = key;
+
+      // Disabled cursor by default for reserved slots by others
+      el.onclick = () => handleSlotClick(el, key);
+
+      return el;
+    }
+
+    async function fetchWithErrorHandling(url, options = {}) {
+      try {
+        const response = await fetch(url, options);
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || `HTTP ${response.status}`);
+        }
+        return data;
+      } catch (error) {
+        showStatus(`Error: ${error.message}`, true);
+        throw error;
+      }
+    }
+
+    async function loadSlots() {
+      selectedDoctorId = parseInt(doctorIdInput.value);
+      selectedDate = dateInput.value; // YYYY-MM-DD format
+      selectedUserId = parseInt(userIdInput.value);
+
+      if (!selectedDoctorId || !selectedDate || !selectedUserId) {
+        showStatus('Please fill in all fields', true);
+        return;
+      }
+
+      try {
+        const url = `${API_BASE_URL}/available_appointment?doctor_id=${selectedDoctorId}&app_date=${selectedDate}`;
+        const slots = await fetchWithErrorHandling(url);
+
+        slotsContainer.innerHTML = "<h3>Available Time Slots:</h3>";
+        selectedSlot = null;
+        ownReservedKey = null; // reset own reservation when loading new slots
+        disableActionButtons();
+
+        if (slots.length === 0) {
+          slotsContainer.innerHTML += "<p>No slots available for this date</p>";
+        } else {
+          slots.forEach(time => {
+            const slotEl = createSlotElement(time);
+            slotsContainer.appendChild(slotEl);
+          });
+        }
+
+        setupWebSocket(selectedDoctorId);
+        showStatus(`Loaded ${slots.length} available slots`);
+      } catch (error) {
+        console.error('Failed to load slots:', error);
+      }
+    }
+
+    function setupWebSocket(doctorId) {
+      if (wsConnection) {
+        wsConnection.close();
+      }
+
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${API_BASE_URL}/ws/doctor/${doctorId}/slots`;
+
+      wsConnection = new WebSocket(wsUrl);
+
+      wsConnection.onopen = () => {
+        wsStatus.textContent = 'WebSocket: Connected';
+        wsStatus.className = 'websocket-status connected';
+        console.log('WebSocket connected');
+      };
+
+      wsConnection.onclose = () => {
+        wsStatus.textContent = 'WebSocket: Disconnected';
+        wsStatus.className = 'websocket-status disconnected';
+        console.log('WebSocket disconnected');
+      };
+
+      wsConnection.onerror = (error) => {
+        showStatus('WebSocket connection error', true);
+        console.error('WebSocket error:', error);
+      };
+
+      wsConnection.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('WebSocket message:', data);
+
+          if (data.doctor_id !== doctorId) return;
+
+          // Extract time from ISO datetime string
+          const slotTime = data.slot_time.substr(11, 8); // "HH:MM:SS"
+          const key = `${doctorId}:${data.slot_time}`;
+          const slotEl = [...slotsContainer.children].find(el => el.dataset && el.dataset.time === slotTime);
+
+          if (!slotEl) return;
+
+          if (data.action === "reserved") {
+            slotEl.classList.add('reserved');
+            // If reserved by another user and this slot was selected, deselect
+            if (slotEl === selectedSlot && ownReservedKey !== key) {
+              selectedSlot.classList.remove('selected');
+              selectedSlot = null;
+              disableActionButtons();
+            }
+            showStatus(`Slot ${slotTime} was reserved by another user`);
+          } else if (data.action === "freed") {
+            slotEl.classList.remove('reserved');
+            showStatus(`Slot ${slotTime} is now available`);
+          }
+        } catch (error) {
+          console.error('Error processing WebSocket message:', error);
+        }
+      };
+    }
+
+    function disableActionButtons() {
+      reserveBtn.disabled = true;
+      confirmBtn.disabled = true;
+      cancelBtn.disabled = true;
+    }
+
+    function handleSlotClick(el, key) {
+      // Block clicks if slot reserved by others
+      if (el.classList.contains('reserved') && ownReservedKey !== key) {
+        showStatus('This slot is already reserved', true);
+        return;
+      }
+
+      // If slot is reserved by self, show modal popup with options
+      if (ownReservedKey === key) {
+        modalTime.textContent = el.dataset.time;
+        modal.style.display = 'block';
+
+        // Set modal buttons handlers
+        modalConfirmBtn.onclick = () => { confirmSlot(); modal.style.display = 'none'; };
+        modalCancelBtn.onclick = () => { cancelSlot(); modal.style.display = 'none'; };
+        modalCloseBtn.onclick = () => { modal.style.display = 'none'; };
+        return;
+      }
+
+      // Otherwise select slot for reserving
+      if (selectedSlot) selectedSlot.classList.remove('selected');
+      el.classList.add('selected');
+      selectedSlot = el;
+
+      reserveBtn.disabled = false;
+      confirmBtn.disabled = true;
+      cancelBtn.disabled = true;
+    }
+
+    async function reserveSlot() {
+      if (!selectedSlot) {
+        showStatus('Please select a slot first', true);
+        return;
+      }
+
+      const appointmentDateTime = `${selectedDate}T${selectedSlot.dataset.time}`;
+
+      const appointment = {
+        doctor_id: selectedDoctorId,
+        appointment_date: appointmentDateTime
+      };
+
+      try {
+        const url = `${API_BASE_URL}/reserve_slot?user_id=${selectedUserId}`;
+        const result = await fetchWithErrorHandling(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(appointment)
+        });
+
+        ownReservedKey = `${selectedDoctorId}:${appointmentDateTime}`; // track reservation ownership
+        showStatus(`Slot reserved! Expires in ${result.expires_in} seconds`);
+
+        // Mark the reserved slot visually as held by self
+        selectedSlot.classList.add('reserved');
+        selectedSlot.classList.remove('selected');
+
+        // Automatically show modal to confirm or cancel
+        modalTime.textContent = selectedSlot.dataset.time;
+        modal.style.display = 'block';
+        disableActionButtons();
+
+        // Clear selection
+        selectedSlot = null;
+      } catch (error) {
+        console.error('Failed to reserve slot:', error);
+      }
+    }
+
+
+    async function confirmSlot() {
+  if (!ownReservedKey) {
+    showStatus('No reserved slot to confirm', true);
+    return;
+  }
+
+  // Split once at the first colon
+  const colonIndex = ownReservedKey.indexOf(':');
+  const doctorId = ownReservedKey.substring(0, colonIndex);
+  let appointmentDateTime = ownReservedKey.substring(colonIndex + 1);
+
+  // Fix: if datetime string length < 19, pad missing time parts ":00:00"
+  // Example ISO datetime length: "2025-09-18T09:00:00" is 19 chars
+  if (appointmentDateTime.length < 19) {
+    // Add missing seconds or minutes (simple fix)
+    if (appointmentDateTime.length === 16) { // like "2025-09-18T09:00"
+      appointmentDateTime += ":00";
+    } else if (appointmentDateTime.length === 13) { // like "2025-09-18T09"
+      appointmentDateTime += ":00:00";
+    }
+  }
+
+  const appointment = {
+    doctor_id: Number(doctorId),
+    appointment_date: appointmentDateTime
+  };
+
+  console.log("Sending appointment JSON:", JSON.stringify(appointment));
+
+  try {
+    const url = `${API_BASE_URL}/confirm_slot/?user_id=${selectedUserId}`;
+    const result = await fetchWithErrorHandling(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(appointment)
+    });
+
+    showStatus('Booking confirmed successfully!');
+    ownReservedKey = null;
+    modal.style.display = 'none';
+    setTimeout(loadSlots, 1000);
+  } catch (error) {
+    console.error('Failed to confirm slot:', error);
+  }
+}
+
+    async function cancelSlot() {
+  if (!ownReservedKey) {
+    showStatus('No reserved slot to cancel', true);
+    return;
+  }
+
+  if (!confirm('Are you sure you want to cancel this reservation?')) return;
+
+  const colonIndex = ownReservedKey.indexOf(':');
+  const doctorId = ownReservedKey.substring(0, colonIndex);
+  const appointmentDateTime = ownReservedKey.substring(colonIndex + 1);
+
+  try {
+    const url = `${API_BASE_URL}/cancel_slot?doctor_id=${doctorId}&slot_time=${encodeURIComponent(appointmentDateTime)}&user_id=${selectedUserId}`;
+    const result = await fetchWithErrorHandling(url, { method: 'POST' });
+
+    showStatus('Reservation cancelled successfully');
+    ownReservedKey = null;
+    modal.style.display = 'none';
+    setTimeout(loadSlots, 1000);
+  } catch (error) {
+    console.error('Failed to cancel slot:', error);
+  }
+}
+
+
+    // Close modal when clicking outside content
+    window.onclick = (event) => {
+      if (event.target === modal) modal.style.display = 'none';
+    };
+
+    loadSlotsBtn.onclick = loadSlots;
+    reserveBtn.onclick = reserveSlot;
+    confirmBtn.onclick = confirmSlot;
+    cancelBtn.onclick = cancelSlot;
+  </script>
+</body>
+</html>

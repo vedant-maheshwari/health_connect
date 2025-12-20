@@ -1,0 +1,1724 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Patient Dashboard</title>
+  <style>
+    /* Modern UI styling - matching doctor dashboard design */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background-color: #f5f7fa;
+      color: #333;
+    }
+
+    /* Header - Modern blue gradient */
+    header {
+      background: linear-gradient(135deg, #4285f4 0%, #1976d2 100%);
+      color: white;
+      padding: 20px 0;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    header h1 {
+      font-size: 28px;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    /* Container - Modern card design */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    /* Navigation Tabs - Clean horizontal tabs */
+    .tabs {
+      display: flex;
+      background: white;
+      border-radius: 10px;
+      margin: 30px 0 20px 0;
+      box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 18px 20px;
+      background: white;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 500;
+      color: #666;
+      transition: all 0.3s ease;
+      text-align: center;
+    }
+
+    .tab:hover {
+      background: #f8f9ff;
+      color: #4285f4;
+    }
+
+    .tab.active {
+      background: #4285f4;
+      color: white;
+      font-weight: 600;
+    }
+
+    .tab:not(:last-child) {
+      border-right: 1px solid #e8eaed;
+    }
+
+    /* Tab Content */
+    .section {
+      display: none;
+      animation: fadeIn 0.3s ease-in;
+    }
+
+    .section.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Cards - Modern design */
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
+      border: 1px solid #e8eaed;
+    }
+
+    .card h3 {
+      font-weight: 600;
+      margin-bottom: 16px;
+      font-size: 20px;
+      color: #333;
+    }
+
+    .card p {
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    /* Buttons - Modern styling */
+    .button {
+      display: inline-block;
+      padding: 12px 24px;
+      background: #4285f4;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      margin: 5px;
+    }
+
+    .button:hover {
+      background: #3367d6;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+    }
+
+    .button.secondary {
+      background: #6c757d;
+    }
+
+    .button.secondary:hover {
+      background: #545b62;
+      box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+    }
+
+    .button.danger {
+      background: #dc3545;
+    }
+
+    .button.danger:hover {
+      background: #c82333;
+      box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+    }
+
+    .button.success {
+      background: #28a745;
+    }
+
+    .button.success:hover {
+      background: #218838;
+    }
+
+    /* Family sub-tabs */
+    .subtabs {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .subtab {
+      flex: 1;
+      min-width: 140px;
+      padding: 12px 16px;
+      cursor: pointer;
+      border: 2px solid #e8eaed;
+      font-weight: 500;
+      text-align: center;
+      background: #f8f9fa;
+      border-radius: 8px;
+      transition: all 0.3s;
+      color: #666;
+    }
+
+    .subtab.active {
+      border-color: #4285f4;
+      background: #4285f4;
+      color: white;
+      font-weight: 600;
+    }
+
+    .subtab:hover:not(.active) {
+      background: #f1f3f4;
+      border-color: #d2d7db;
+    }
+
+    .subsection {
+      display: none;
+    }
+
+    .subsection.active {
+      display: block;
+    }
+
+    /* Form styles */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #333;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e8eaed;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s ease;
+      box-sizing: border-box;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #4285f4;
+      box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+    }
+
+    /* Appointments styles */
+    .appointment-item {
+      background: #f8fafc;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      border-left: 4px solid #4285f4;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .appointment-info {
+      flex: 1;
+      min-width: 250px;
+    }
+
+    .appointment-date {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+
+    .appointment-doctor {
+      color: #666;
+      margin-bottom: 4px;
+    }
+
+    .appointment-time {
+      color: #999;
+      font-size: 14px;
+    }
+
+    .appointment-status {
+      padding: 4px 12px;
+      border-radius: 16px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .appointment-status.pending {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .appointment-status.accepted {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .appointment-status.rejected {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .appointment-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Vitals styles */
+    .vital-item {
+      background: #f8fafc;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      border-left: 4px solid #4285f4;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .vital-date {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+
+    .vital-value {
+      color: #666;
+      margin-bottom: 4px;
+    }
+
+    /* Member item styles */
+    .member-item {
+      background: #f8fafc;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid #e8eaed;
+      flex-wrap: wrap;
+      gap: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .member-info {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .member-name {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 4px;
+      font-size: 16px;
+    }
+
+    .member-relation {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .member-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Permission toggle styles */
+    .permission-item {
+      background: #f9fafb;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .permission-toggle {
+      position: relative;
+      display: inline-block;
+      width: 48px;
+      height: 24px;
+    }
+
+    .permission-toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .permission-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #cbd5e1;
+      transition: 0.3s;
+      border-radius: 24px;
+    }
+
+    .permission-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+    }
+
+    input:checked+.permission-slider {
+      background-color: #4285f4;
+    }
+
+    input:checked+.permission-slider:before {
+      transform: translateX(24px);
+    }
+
+    /* Chat styles within chats tab */
+    #chatLanding,
+    #chatMessages {
+      margin-top: 20px;
+    }
+
+    #chatMessages {
+      display: none;
+      flex-direction: column;
+      height: 500px;
+      border: 1px solid #e8eaed;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
+    }
+
+    .chat-header {
+      padding: 16px 20px;
+      background: #4285f4;
+      color: white;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .chat-header h3 {
+      color: white;
+      margin: 0;
+    }
+
+    #messages {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      background: #f8f9fa;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      font-size: 14px;
+    }
+
+    .message-bubble {
+      max-width: 70%;
+      border-radius: 18px;
+      padding: 12px 16px;
+      word-wrap: break-word;
+      position: relative;
+      line-height: 1.4;
+    }
+
+    .message-bubble.own {
+      align-self: flex-end;
+      background: #4285f4;
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message-bubble.other {
+      align-self: flex-start;
+      background: white;
+      color: #333;
+      border: 1px solid #e8eaed;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .message-meta {
+      font-size: 12px;
+      opacity: 0.7;
+      text-align: right;
+      margin-top: 4px;
+    }
+
+    .message-bubble.other .message-meta {
+      color: #666;
+    }
+
+    #inputRow {
+      padding: 16px 20px;
+      background: white;
+      border-top: 1px solid #e8eaed;
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    #txt {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #e8eaed;
+      border-radius: 25px;
+      outline: none;
+      font-family: inherit;
+      font-size: 14px;
+      resize: none;
+      min-height: 20px;
+      max-height: 96px;
+      transition: border-color 0.3s;
+    }
+
+    #txt:focus {
+      border-color: #4285f4;
+    }
+
+    #send {
+      background: #4285f4;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 25px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.3s;
+    }
+
+    #send:hover:not(:disabled) {
+      background: #3367d6;
+      transform: translateY(-1px);
+    }
+
+    #send:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Empty state styles */
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    .empty-state h4 {
+      color: #333;
+      margin-bottom: 8px;
+      font-size: 18px;
+    }
+
+    .error-state {
+      text-align: center;
+      padding: 40px;
+      color: #dc3545;
+    }
+
+    .error-state h4 {
+      margin-bottom: 8px;
+    }
+
+    .loading-state {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    /* .loading-state::after {
+      content: '';
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #e8eaed;
+      border-radius: 50%;
+      border-top-color: #4285f4;
+      animation: spin 1s ease-in-out infinite;
+      margin-left: 10px;
+    } */
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container {
+        padding: 0 15px;
+      }
+
+      .tabs {
+        flex-wrap: wrap;
+      }
+
+      .tab {
+        flex: 1 1 auto;
+        min-width: 120px;
+      }
+
+      .subtabs {
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .subtab {
+        flex: none;
+      }
+
+      .appointment-item,
+      .member-item {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .appointment-actions,
+      .member-actions {
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      #chatMessages {
+        height: 400px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>Patient Dashboard</header>
+
+  <div class="container">
+    <!-- Tabs -->
+    <!-- Tabs -->
+    <div class="tabs" role="tablist" aria-label="Patient dashboard navigation">
+      <div class="tab active" role="tab" aria-selected="true" tabindex="0" data-target="profile">Profile</div>
+      <div class="tab" role="tab" aria-selected="false" tabindex="-1" data-target="appointments">Appointments</div>
+      <div class="tab" role="tab" aria-selected="false" tabindex="-1" data-target="ai-triage">AI Health Check</div>
+      <!-- NEW -->
+      <div class="tab" role="tab" aria-selected="false" tabindex="-1" data-target="chats">Chats</div>
+      <div class="tab" role="tab" aria-selected="false" tabindex="-1" data-target="vitals">Vitals</div>
+      <div class="tab" role="tab" aria-selected="false" tabindex="-1" data-target="family">Family</div>
+    </div>
+
+    <!-- Profile Section -->
+    <section id="profile" class="section active" role="tabpanel">
+      <div class="card" aria-live="polite" aria-atomic="true">
+        <h3>Welcome, <span id="userName"></span></h3>
+        <p>Email: <span id="userEmail"></span></p>
+      </div>
+      <div class="card">
+        <button class="button danger" onclick="logout()">Logout</button>
+      </div>
+    </section>
+
+    <!-- Appointments Section -->
+    <section id="appointments" class="section" role="tabpanel" tabindex="-1" aria-hidden="true">
+      <div class="card">
+        <h3>My Appointments</h3>
+        <a href="create_appointment.html" class="button" role="button">Book New Appointment</a>
+        <a href="triage_booking.html" class="button"
+          style="background: linear-gradient(135deg, #6366f1, #a855f7); border:none;" role="button">✨ AI Smart
+          Booking</a>
+        <div id="appointmentsContainer" class="loading-state">Loading appointments...</div>
+      </div>
+    </section>
+
+    <!-- Chats Section -->
+    <section id="chats" class="section" role="tabpanel" tabindex="-1" aria-hidden="true">
+      <button class="button" id="showRoomsBtn" type="button">Show All Chats</button>
+
+      <div id="chatLanding">
+        <div class="card">
+          <h3>Your Chat Rooms</h3>
+          <div id="chatRooms">Loading...</div>
+        </div>
+      </div>
+
+      <div id="chatMessages">
+        <div class="chat-header">
+          <h3 id="chatTitle">Chat Room</h3>
+          <button class="button secondary" onclick="showChatLanding()" style="font-size: 12px; padding: 8px 16px;">←
+            Back</button>
+        </div>
+        <div id="messages"></div>
+        <div id="inputRow">
+          <textarea id="txt" placeholder="Type your message..." rows="1"></textarea>
+          <button id="send" disabled>Send</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Vitals Section -->
+    <section id="vitals" class="section" role="tabpanel" tabindex="-1" aria-hidden="true">
+      <div class="card">
+        <h3>My Vitals</h3>
+        <div id="vitalsContainer" class="loading-state">Loading...</div>
+      </div>
+    </section>
+
+    <!-- Family Section -->
+    <section id="family" class="section" role="tabpanel" tabindex="-1" aria-hidden="true">
+      <div class="card">
+        <h3>Family Management</h3>
+        <!-- Sub-tabs for family management -->
+        <div class="subtabs">
+          <button class="subtab active" data-subtarget="viewFamily" type="button">Your Family Members</button>
+          <button class="subtab" data-subtarget="sendInvitation" type="button">Send Invitation</button>
+          <button class="subtab" data-subtarget="managePermissions" type="button">Manage Permissions</button>
+        </div>
+
+        <!-- View Family Members Sub-section -->
+        <div id="viewFamily" class="subsection active">
+          <div id="familyList" class="loading-state">Loading family members...</div>
+        </div>
+
+        <!-- Send Invitation Sub-section -->
+        <div id="sendInvitation" class="subsection">
+          <form id="inviteForm">
+            <div class="form-group">
+              <label for="inviteEmail">Email of family member</label>
+              <input type="email" id="inviteEmail" class="form-input" placeholder="Enter family member's email"
+                required>
+            </div>
+            <div class="form-group">
+              <label for="relationship">Relationship</label>
+              <input type="text" id="relationship" class="form-input" placeholder="e.g., Spouse, Child, Parent"
+                required>
+            </div>
+            <button type="submit" class="button">Send Invitation</button>
+          </form>
+        </div>
+
+        <!-- Manage Permissions Sub-section -->
+        <div id="managePermissions" class="subsection">
+          <div id="permissionsContainer" class="loading-state">Loading permissions...</div>
+        </div>
+      </div>
+    </section>
+    <!-- AI Triage Section -->
+    <section id="ai-triage" class="section" role="tabpanel" tabindex="-1" aria-hidden="true">
+      <div class="card">
+        <h3> AI Health Assistant</h3>
+        <p>Get instant medical guidance based on your symptoms</p>
+        <a href="triage_booking.html" class="button" style="margin-top: 1rem;">Start AI Health Check</a>
+      </div>
+
+      <div class="card">
+        <h3>Your Recent AI Assessments</h3>
+        <div id="triageHistoryContainer" class="loading-state">Loading assessments...</div>
+      </div>
+    </section>
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    // Constants
+
+    const API_BASE_URL = API_CONFIG.getApiBaseUrl();
+    console.log('Using API Base URL:', API_BASE_URL);
+
+    const token = sessionStorage.getItem("token") || localStorage.getItem("token");
+    if (!token) {
+      location.href = "login.html";
+    }
+
+    // Store user ID for WebSocket
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        sessionStorage.setItem("user_id", payload.id);
+      } catch (e) {
+        console.error('Error parsing token:', e);
+      }
+    }
+
+    // Global variables
+    let wsClient = null;
+    let currentChatId = null;
+
+    // Tab navigation logic
+    const tabs = document.querySelectorAll('.tab');
+    const tabPanels = document.querySelectorAll('.section');
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => activateTab(tab));
+      tab.addEventListener('keydown', (e) => {
+        const idx = Array.from(tabs).indexOf(tab);
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          activateTab(tabs[(idx + 1) % tabs.length]);
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          activateTab(tabs[(idx + tabs.length - 1) % tabs.length]);
+        }
+      });
+    });
+
+    function activateTab(tab) {
+      tabs.forEach(t => {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+        t.tabIndex = -1;
+      });
+
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected', 'true');
+      tab.tabIndex = 0;
+
+      tabPanels.forEach(s => {
+        s.classList.remove('active');
+        s.setAttribute('aria-hidden', 'true');
+        s.tabIndex = -1;
+      });
+
+      const target = tab.dataset.target;
+      const panel = document.getElementById(target);
+      panel.classList.add('active');
+      panel.setAttribute('aria-hidden', 'false');
+      panel.tabIndex = 0;
+
+      // Load content based on tab
+      if (target === 'appointments') {
+        loadAppointments();
+      } else if (target === 'chats') {
+        showChatLanding();
+        loadChats();
+      } else if (target === 'vitals') {
+        loadVitals();
+      } else if (target === 'family') {
+        loadFamily();
+      } else if (target === 'profile') {
+        loadUser();
+      }
+      else if (target === 'ai-triage') {
+        loadTriageHistory();
+      }
+
+      tab.focus();
+    }
+
+    // Family sub-tabs logic
+    const familySubtabs = document.querySelectorAll('.subtab');
+    const familySubsections = document.querySelectorAll('.subsection');
+
+    familySubtabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        familySubtabs.forEach(t => t.classList.remove('active'));
+        familySubsections.forEach(s => s.classList.remove('active'));
+        tab.classList.add('active');
+        const targetId = tab.dataset.subtarget;
+        document.getElementById(targetId).classList.add('active');
+
+        // Load content for permissions tab
+        if (targetId === 'managePermissions') {
+          loadFamilyPermissions();
+        }
+      });
+    });
+
+    // User profile functionality
+    async function loadUser() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/user/me`, {
+          headers: { "Authorization": "Bearer " + token }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+        const user = await res.json();
+        document.getElementById("userName").textContent = user.name || "User";
+        document.getElementById("userEmail").textContent = user.email || "No email";
+      } catch (error) {
+        console.error('Error loading user:', error);
+        document.getElementById("userName").textContent = "User";
+        document.getElementById("userEmail").textContent = "Unable to load email";
+      }
+    }
+
+    // Appointments functionality - ORIGINAL PATIENT CODE
+    async function loadAppointments() {
+      const container = document.getElementById("appointmentsContainer");
+      container.innerHTML = '<div class="loading-state">Loading appointments...</div>';
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/patient/me/appointments/detailed`, {
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+          }
+        });
+
+        console.log('Appointments API response status:', res.status);
+
+        if (!res.ok) {
+          if (res.status === 404) {
+            container.innerHTML = `
+              <div class="empty-state">
+                <h4>No appointments scheduled</h4>
+                <p>Book your first appointment with a healthcare provider.</p>
+                <a href="create_appointment.html" class="button" style="margin-top: 1rem;">Book Appointment</a>
+              </div>
+            `;
+            return;
+          }
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+
+        const appointments = await res.json();
+        console.log('Appointments data:', appointments);
+
+        container.innerHTML = "";
+
+        if (!appointments || appointments.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <h4>No appointments scheduled</h4>
+              <p>Book your first appointment with a healthcare provider.</p>
+              <a href="create_appointment.html" class="button" style="margin-top: 1rem;">Book Appointment</a>
+            </div>
+          `;
+          return;
+        }
+
+        appointments.forEach(appointment => {
+          const div = document.createElement("div");
+          div.className = "appointment-item";
+          const statusClass = appointment.status.toLowerCase();
+
+          div.innerHTML = `
+            <div class="appointment-info">
+              <div class="appointment-date">${appointment.appointment_day}</div>
+              <div class="appointment-doctor"><strong>Dr. ${appointment.doctor_name}</strong></div>
+              <div class="appointment-time">${appointment.appointment_time}</div>
+            </div>
+            <div class="appointment-actions">
+              <div class="appointment-status ${statusClass}">${appointment.status_display}</div>
+              ${appointment.can_cancel ?
+              `<button class="button danger" onclick="cancelAppointment(${appointment.id})" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;">Cancel</button>`
+              : ''
+            }
+            </div>
+          `;
+
+          container.appendChild(div);
+        });
+      } catch (error) {
+        console.error('Error loading appointments:', error);
+        container.innerHTML = `
+          <div class="error-state">
+            <h4>Error loading appointments</h4>
+            <p>There was a problem loading your appointments: ${error.message}</p>
+            <button class="button" onclick="loadAppointments()" style="margin-top: 1rem;">Retry</button>
+          </div>
+        `;
+      }
+    }
+
+    // Cancel appointment function
+    async function cancelAppointment(appointmentId) {
+      if (!confirm('Are you sure you want to cancel this appointment?')) return;
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/patient/appointments/${appointmentId}/cancel`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+        const result = await res.json();
+        alert('Appointment cancelled successfully');
+        loadAppointments(); // Refresh the list
+      } catch (error) {
+        console.error('Error cancelling appointment:', error);
+        alert('Error cancelling appointment: ' + error.message);
+      }
+    }
+
+    // Vitals functionality - ORIGINAL PATIENT CODE
+    async function loadVitals() {
+      const container = document.getElementById("vitalsContainer");
+      container.innerHTML = '<div class="loading-state">Loading vitals...</div>';
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/get_vital`, {
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+          }
+        });
+
+        console.log('Vitals API response status:', res.status);
+
+        if (!res.ok) {
+          if (res.status === 404) {
+            container.innerHTML = `
+              <div class="empty-state">
+                <h4>No vitals recorded yet</h4>
+                <p>Your vital signs will appear here once recorded by your healthcare provider.</p>
+              </div>
+            `;
+            return;
+          }
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+
+        const vitals = await res.json();
+        console.log('Vitals data:', vitals);
+
+        container.innerHTML = "";
+
+        if (!vitals || (Array.isArray(vitals) && vitals.length === 0) || Object.keys(vitals).length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <h4>No vitals recorded yet</h4>
+              <p>Your vital signs will appear here once recorded by your healthcare provider.</p>
+            </div>
+          `;
+          return;
+        }
+
+        const vitalsList = Array.isArray(vitals) ? vitals : [vitals];
+
+        vitalsList.forEach(vital => {
+          const div = document.createElement("div");
+          div.className = "vital-item";
+
+          const date = vital.date || vital.timestamp || vital.created_at || vital.recorded_at || new Date().toISOString();
+          const bloodPressure = vital.bp || vital.blood_pressure || vital.systolic_pressure || 'Not recorded';
+          const heartRate = vital.heart_rate || vital.pulse || vital.hr || 'Not recorded';
+          const temperature = vital.temperature || vital.temp || 'Not recorded';
+          const weight = vital.weight || 'Not recorded';
+          const height = vital.height || 'Not recorded';
+          const notes = vital.notes || "No notes";
+
+          let vitalContent = `<div class="vital-date">${formatDate(date)}</div>`;
+
+          if (bloodPressure !== 'Not recorded') {
+            vitalContent += `<div class="vital-value"><strong>Blood Pressure:</strong> ${bloodPressure}</div>`;
+          }
+          if (heartRate !== 'Not recorded') {
+            vitalContent += `<div class="vital-value"><strong>Heart Rate:</strong> ${heartRate} bpm</div>`;
+          }
+          if (temperature !== 'Not recorded') {
+            vitalContent += `<div class="vital-value"><strong>Temperature:</strong> ${temperature}°F</div>`;
+          }
+          if (weight !== 'Not recorded') {
+            vitalContent += `<div class="vital-value"><strong>Weight:</strong> ${weight} lbs</div>`;
+          }
+          if (height !== 'Not recorded') {
+            vitalContent += `<div class="vital-value"><strong>Height:</strong> ${height} inches</div>`;
+          }
+          if (notes !== 'Not recorded') {
+            vitalContent += `<div class="vital-value"><strong>Notes:</strong> ${notes}</div>`;
+          }
+          if (vitalContent === `<div class="vital-date">${formatDate(date)}</div>`) {
+            vitalContent += `<div class="vital-value"><em>Vital signs data available</em></div>`;
+          }
+
+          div.innerHTML = vitalContent;
+          container.appendChild(div);
+        });
+      } catch (error) {
+        console.error('Error loading vitals:', error);
+        container.innerHTML = `
+          <div class="error-state">
+            <h4>Error loading vitals</h4>
+            <p>There was a problem loading your vital signs: ${error.message}</p>
+            <button class="button" onclick="loadVitals()" style="margin-top: 1rem;">Retry</button>
+          </div>
+        `;
+      }
+    }
+
+    function formatDate(dateString) {
+      try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return dateString;
+        return date.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      } catch (e) {
+        return dateString;
+      }
+    }
+
+    // Family functionality - ORIGINAL PATIENT CODE
+    async function loadFamily() {
+      const container = document.getElementById("familyList");
+      container.innerHTML = '<div class="loading-state">Loading family members...</div>';
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/family/get_all_family_members`, {
+          headers: { "Authorization": "Bearer " + token }
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+        const data = await res.json();
+        console.log('Family members response:', data);
+
+        container.innerHTML = "";
+
+        if (!data || data.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <h4>No family members yet</h4>
+              <p>Send invitations to your family members to connect them to your healthcare.</p>
+            </div>
+          `;
+          return;
+        }
+
+        data.forEach(member => {
+          const div = document.createElement("div");
+          div.className = "member-item";
+
+          const name = member.name || member.email || 'Unknown';
+          const relationship = member.relationship_type || 'Family Member';
+
+          div.innerHTML = `
+            <div class="member-info">
+              <div class="member-name">${name}</div>
+              <div class="member-relation">${relationship}</div>
+            </div>
+            <div class="member-actions">
+              <button class="button secondary" onclick="manageMemberPermissions(${member.id}, '${name}')" style="font-size: 0.9rem;">Manage Permissions</button>
+            </div>
+          `;
+
+          container.appendChild(div);
+        });
+      } catch (error) {
+        console.error('Error loading family members:', error);
+        container.innerHTML = `
+          <div class="error-state">
+            <h4>Error loading family members</h4>
+            <p>There was a problem loading your family members: ${error.message}</p>
+            <button class="button" onclick="loadFamily()" style="margin-top: 1rem;">Retry</button>
+          </div>
+        `;
+      }
+    }
+
+    // Family permission management - ORIGINAL PATIENT CODE
+    async function loadFamilyPermissions() {
+      const container = document.getElementById("permissionsContainer");
+      container.innerHTML = '<div class="loading-state">Loading permissions...</div>';
+
+      try {
+        // Get current user ID from token
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const currentUserId = payload.id;
+
+        const res = await fetch(`${API_BASE_URL}/family/permissions/${currentUserId}`, {
+          headers: { "Authorization": "Bearer " + token }
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+        const familyMembers = await res.json();
+        console.log('Family permissions data:', familyMembers);
+
+        container.innerHTML = "";
+
+        if (!familyMembers || familyMembers.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <h4>No family members to manage</h4>
+              <p>Add family members first to manage their permissions.</p>
+            </div>
+          `;
+          return;
+        }
+
+        familyMembers.forEach(member => {
+          const div = document.createElement("div");
+          div.className = "member-item";
+          div.style.flexDirection = 'column';
+          div.style.alignItems = 'flex-start';
+          div.style.gap = '1rem';
+
+          const permissions = member.permissions;
+
+          div.innerHTML = `
+            <div class="member-info" style="width: 100%;">
+              <div class="member-name">${member.name}</div>
+              <div class="member-relation">${member.relationship_type}</div>
+            </div>
+            <div style="width: 100%;">
+              <h4 style="margin-bottom: 0.5rem; color: #333;">Permissions</h4>
+              <div class="permission-item">
+                <span>View Medical Records</span>
+                <label class="permission-toggle">
+                  <input type="checkbox" ${permissions.can_view_records ? 'checked' : ''} onchange="updatePermission(${member.family_member_id}, 'can_view_records', this.checked)">
+                  <span class="permission-slider"></span>
+                </label>
+              </div>
+              <div class="permission-item">
+                <span>Book Appointments</span>
+                <label class="permission-toggle">
+                  <input type="checkbox" ${permissions.can_book_appointments ? 'checked' : ''} onchange="updatePermission(${member.family_member_id}, 'can_book_appointments', this.checked)">
+                  <span class="permission-slider"></span>
+                </label>
+              </div>
+              <div class="permission-item">
+                <span>Message Doctor</span>
+                <label class="permission-toggle">
+                  <input type="checkbox" ${permissions.can_message_doctor ? 'checked' : ''} onchange="updatePermission(${member.family_member_id}, 'can_message_doctor', this.checked)">
+                  <span class="permission-slider"></span>
+                </label>
+              </div>
+            </div>
+          `;
+
+          container.appendChild(div);
+        });
+      } catch (error) {
+        console.error('Error loading family permissions:', error);
+        container.innerHTML = `
+          <div class="error-state">
+            <h4>Error loading permissions</h4>
+            <p>There was a problem loading family permissions: ${error.message}</p>
+            <button class="button" onclick="loadFamilyPermissions()" style="margin-top: 1rem;">Retry</button>
+          </div>
+        `;
+      }
+    }
+
+    // Update permission function
+    // async function updatePermission(familyMemberId, permissionType, isEnabled) {
+    //   try {
+    //     const updateData = {};
+    //     updateData[permissionType] = isEnabled;
+
+    //     const res = await fetch(`${API_BASE_URL}/family/permissions/${familyMemberId}`, {
+    //       method: 'PUT',
+    //       headers: {
+    //         'Authorization': 'Bearer ' + token,
+    //         'Content-Type': 'application/json'
+    //       },
+    //       body: JSON.stringify(updateData)
+    //     });
+
+    //     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+    //     const result = await res.json();
+    //     console.log('Permission updated:', result);
+    //   } catch (error) {
+    //     console.error('Error updating permission:', error);
+    //     alert('Error updating permission: ' + error.message);
+    //     // Reload permissions to reset the toggle
+    //     loadFamilyPermissions();
+    //   }
+    // }
+
+    async function updatePermission(familyMemberId, permissionType, isEnabled) {
+      try {
+        // Get current user ID (patient ID) from token
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const currentUserId = payload.id;
+
+        const updateData = {};
+        updateData[permissionType] = isEnabled;
+
+        // FIXED: Use correct URL format with patient_id and family_member_id
+        const res = await fetch(`${API_BASE_URL}/family/permissions/${currentUserId}/${familyMemberId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(updateData)
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+        const result = await res.json();
+        console.log('Permission updated:', result);
+      } catch (error) {
+        console.error('Error updating permission:', error);
+        alert('Error updating permission: ' + error.message);
+        loadFamilyPermissions();
+      }
+    }
+
+    // Family invitation form - ORIGINAL PATIENT CODE
+    document.getElementById("inviteForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const email = document.getElementById("inviteEmail").value.trim();
+      const relationship = document.getElementById("relationship").value.trim();
+
+      if (!email || !relationship) {
+        alert("Please fill in all fields");
+        return;
+      }
+
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const originalText = submitBtn.textContent;
+      submitBtn.textContent = 'Sending...';
+      submitBtn.disabled = true;
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/family/send_invitation`, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            invitee_email: email,
+            relationship_type: relationship
+          })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          alert(data.msg || 'Invitation sent successfully!');
+          document.getElementById("inviteEmail").value = '';
+          document.getElementById("relationship").value = '';
+
+          // Switch back to family members view
+          familySubtabs.forEach(t => t.classList.remove('active'));
+          familySubsections.forEach(s => s.classList.remove('active'));
+          familySubtabs[0].classList.add('active');
+          familySubsections[0].classList.add('active');
+          loadFamily();
+        } else {
+          throw new Error(data.detail || data.message || 'Failed to send invitation');
+        }
+      } catch (error) {
+        console.error('Error sending invitation:', error);
+        alert('Error: ' + error.message);
+      } finally {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+      }
+    });
+
+    // Chat functionality - ORIGINAL PATIENT CODE
+    const chatLanding = document.getElementById('chatLanding');
+    const chatRoomsDiv = document.getElementById('chatRooms');
+    const chatMessages = document.getElementById('chatMessages');
+    const chatTitle = document.getElementById('chatTitle');
+    const messagesDiv = document.getElementById('messages');
+    const txt = document.getElementById('txt');
+    const sendBtn = document.getElementById('send');
+    const showRoomsBtn = document.getElementById('showRoomsBtn');
+
+    showRoomsBtn.addEventListener('click', () => {
+      if (chatLanding.style.display === 'none') {
+        showChatLanding();
+      } else if (currentChatId !== null) {
+        showChatMessages();
+      } else {
+        alert('Select a chat room first');
+      }
+    });
+
+    async function loadChats() {
+      chatRoomsDiv.innerHTML = '<div class="loading-state">Loading chat rooms...</div>';
+      try {
+        const res = await fetch(`${API_BASE_URL}/chats/my`, {
+          headers: { "Authorization": "Bearer " + token }
+        });
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+
+        const chats = await res.json();
+        chatRoomsDiv.innerHTML = "";
+
+        if (!Array.isArray(chats) || chats.length === 0) {
+          chatRoomsDiv.innerHTML = `
+            <div class="empty-state">
+              <h4>No chat rooms found</h4>
+              <p>Your healthcare provider will create chat rooms for consultations.</p>
+            </div>
+          `;
+          return;
+        }
+
+        chats.forEach(c => {
+          const div = document.createElement("div");
+          div.className = "card";
+
+          const title = document.createElement("h4");
+          title.textContent = c.name || "Chat Room";
+
+          const button = document.createElement("button");
+          button.className = "button";
+          button.textContent = "Open";
+
+          button.addEventListener('click', () => {
+            openChat(c.id, c.name || 'Chat Room');
+          });
+
+          div.appendChild(title);
+          div.appendChild(button);
+          chatRoomsDiv.appendChild(div);
+        });
+      } catch (error) {
+        console.error('Error loading chats:', error);
+        chatRoomsDiv.innerHTML = `
+          <div class="error-state">
+            <h4>Error loading chat rooms</h4>
+            <p>Please check your connection and try again.</p>
+            <button class="button" onclick="loadChats()" style="margin-top: 1rem;">Retry</button>
+          </div>
+        `;
+      }
+    }
+
+    function showChatLanding() {
+      chatLanding.style.display = "block";
+      chatMessages.style.display = "none";
+      showRoomsBtn.textContent = "Show Chat Messages";
+    }
+
+    function showChatMessages() {
+      chatLanding.style.display = "none";
+      chatMessages.style.display = "flex";
+      showRoomsBtn.textContent = "Show All Chats";
+    }
+
+    window.openChat = async function (id, name) {
+      currentChatId = id;
+      chatTitle.textContent = name;
+      showChatMessages();
+      await loadHistory();
+      await connectWS();
+    }
+
+    async function loadHistory() {
+      messagesDiv.innerHTML = '<div class="loading-state">Loading messages...</div>';
+      try {
+        const res = await fetch(`${API_BASE_URL}/chats/${currentChatId}/messages`, {
+          headers: { "Authorization": "Bearer " + token }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const msgs = await res.json();
+        messagesDiv.innerHTML = "";
+        if (msgs.length === 0) {
+          messagesDiv.innerHTML = `
+            <div class="empty-state">
+              <h4>Start the conversation</h4>
+              <p>Send a message to begin chatting</p>
+            </div>
+          `;
+        } else {
+          msgs.forEach(showMessage);
+        }
+      } catch (error) {
+        console.error('Error loading history:', error);
+        messagesDiv.innerHTML = '<div class="error-state"><h4>Failed to load messages</h4></div>';
+      }
+    }
+
+    let lastSenderId = null;
+
+    function showMessage(msg) {
+      const existingState = messagesDiv.querySelector('.loading-state, .empty-state');
+      if (existingState) existingState.remove();
+
+      const own = Number(msg.sender_id) === Number(sessionStorage.getItem('user_id'));
+      const showSender = msg.sender_id !== lastSenderId;
+      lastSenderId = msg.sender_id;
+
+      const bubble = document.createElement('div');
+      bubble.className = 'message-bubble ' + (own ? 'own' : 'other');
+
+      let ts = "now";
+      try {
+        ts = new Date(msg.timestamp).toLocaleString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+          day: 'numeric',
+          month: 'short'
+        });
+      } catch (e) { }
+
+      bubble.innerHTML = `
+    ${!own && showSender ? `<div class="message-sender" style="font-weight:600; margin-bottom:4px;">${escapeHtml(msg.sender_name || "Unknown")}</div>` : ""}
+    <div class="message-content">${escapeHtml(msg.content)}</div>
+    <div class="message-meta">${ts}</div>
+  `;
+
+      messagesDiv.appendChild(bubble);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+
+    function escapeHtml(text) {
+      return text.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
+    }
+
+    async function connectWS() {
+      if (wsClient) {
+        wsClient.close();
+      }
+      try {
+        const res = await fetch(`${API_BASE_URL}/ws-token`, {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const { ws_token } = await res.json();
+
+        let wsUrl;
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          wsUrl = `ws://127.0.0.1:8006/chats/ws/${currentChatId}?ws_token=${ws_token}`;
+        } else {
+          wsUrl = `wss://${window.location.host}/chats/ws/${currentChatId}?ws_token=${ws_token}`;
+        }
+
+        wsClient = new WebSocket(wsUrl);
+
+        sendBtn.disabled = true;
+
+        wsClient.onopen = () => {
+          sendBtn.disabled = false;
+          console.log('WebSocket connected');
+        };
+        wsClient.onmessage = (ev) => {
+          const msg = JSON.parse(ev.data);
+          showMessage(msg);
+        };
+        wsClient.onerror = (error) => {
+          console.error('WebSocket error:', error);
+        };
+        wsClient.onclose = (event) => {
+          console.log(`WebSocket closed: ${event.code} - ${event.reason}`);
+          sendBtn.disabled = true;
+        };
+      } catch (err) {
+        console.error('Error connecting WebSocket:', err);
+        sendBtn.disabled = true;
+      }
+    }
+
+    txt.addEventListener('input', () => {
+      txt.style.height = 'auto';
+      txt.style.height = Math.min(txt.scrollHeight, 96) + 'px';
+      sendBtn.disabled = !txt.value.trim() || !wsClient || wsClient.readyState !== WebSocket.OPEN;
+    });
+
+    sendBtn.addEventListener('click', sendMessage);
+    txt.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    function sendMessage() {
+      if (!wsClient || wsClient.readyState !== WebSocket.OPEN) return;
+      const text = txt.value.trim();
+      if (!text) return;
+
+      try {
+        wsClient.send(JSON.stringify({ content: text }));
+        txt.value = '';
+        txt.style.height = 'auto';
+        sendBtn.disabled = true;
+      } catch (error) {
+        console.error('Error sending message:', error);
+      }
+    }
+
+    // AI Triage History - NEW FUNCTION
+    async function loadTriageHistory() {
+      const container = document.getElementById("triageHistoryContainer");
+      container.innerHTML = '<div class="loading-state">Loading AI assessments...</div>';
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/triage/history`, {
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+          }
+        });
+
+        if (!res.ok) {
+          if (res.status === 404) {
+            container.innerHTML = `
+          <div class="empty-state">
+            <h4>No AI assessments yet</h4>
+            <p>Try the AI Health Check to get your first medical guidance.</p>
+          </div>
+        `;
+            return;
+          }
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+
+        const assessments = await res.json();
+        console.log('Triage history:', assessments);
+
+        container.innerHTML = "";
+
+        if (!assessments || assessments.length === 0) {
+          container.innerHTML = `
+        <div class="empty-state">
+          <h4>No AI assessments yet</h4>
+          <p>Try the AI Health Check to get your first medical guidance.</p>
+        </div>
+      `;
+          return;
+        }
+
+        assessments.forEach(assessment => {
+          const div = document.createElement("div");
+          div.className = `card severity-${assessment.severity}`;
+          div.style.borderLeft = `5px solid ${getSeverityColor(assessment.severity)}`;
+          div.style.marginBottom = "1rem";
+
+          div.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+          <div style="flex: 1;">
+            <h4 style="margin-bottom: 8px;">${assessment.specialty} Consultation</h4>
+            <p style="color: #666; margin-bottom: 4px;">${assessment.notes}</p>
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 8px;">
+              <span style="font-size: 12px; color: #999;">Severity: <strong>${assessment.severity}/5</strong></span>
+              ${assessment.confidence ? `<span style="font-size: 12px; color: #999;">AI Confidence: ${(assessment.confidence * 100).toFixed(0)}%</span>` : ''}
+            </div>
+            ${assessment.validated ? `<span style="font-size: 12px; color: #28a745;">✅ Doctor Validated</span>` : ''}
+            <p style="font-size: 12px; color: #999; margin-top: 8px;">${formatDate(assessment.created_at)}</p>
+          </div>
+          <div class="appointment-actions">
+            ${!assessment.validated ? `<button class="button" onclick="bookFromTriage(${assessment.id})" style="font-size: 0.9rem;">Book Appointment</button>` : ''}
+          </div>
+        </div>
+      `;
+
+          container.appendChild(div);
+        });
+      } catch (error) {
+        console.error('Error loading triage history:', error);
+        container.innerHTML = `
+      <div class="error-state">
+        <h4>Error loading AI assessments</h4>
+        <p>There was a problem loading your assessments: ${error.message}</p>
+        <button class="button" onclick="loadTriageHistory()" style="margin-top: 1rem;">Retry</button>
+      </div>
+    `;
+      }
+    }
+
+    function getSeverityColor(severity) {
+      const colors = {
+        5: '#dc3545', 4: '#fd7e14', 3: '#ffc107',
+        2: '#28a745', 1: '#6c757d'
+      };
+      return colors[severity] || '#6c757d';
+    }
+
+    async function bookFromTriage(assessmentId) {
+      // Redirect to appointment booking with triage ID
+      sessionStorage.setItem('selected_triage_id', assessmentId);
+      window.location.href = 'ai_triage.html';
+    }
+
+    function getSeverityColor(severity) {
+      const colors = {
+        5: '#dc3545', 4: '#fd7e14', 3: '#ffc107',
+        2: '#28a745', 1: '#6c757d'
+      };
+      return colors[severity] || '#6c757d';
+    }
+
+    function logout() {
+      if (wsClient) {
+        wsClient.close();
+        wsClient = null;
+      }
+      sessionStorage.clear();
+      localStorage.clear();
+      window.location.href = 'login.html';
+    }
+
+    // Initialize the dashboard
+    document.addEventListener('DOMContentLoaded', function () {
+      const activeTab = document.querySelector('.tab.active');
+      if (activeTab) {
+        activateTab(activeTab);
+      }
+    });
+
+    // Initialize immediately as well
+    const activeTab = document.querySelector('.tab.active');
+    if (activeTab) {
+      activateTab(activeTab);
+    }
+  </script>
+</body>
+
+</html>

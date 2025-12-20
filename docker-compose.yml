@@ -1,0 +1,270 @@
+version: '3.8'
+
+services:
+  # Database (Postgres)
+  postgres:
+    image: postgres:15
+    container_name: telehealth-postgres
+    environment:
+      POSTGRES_USER: telehealth_user
+      POSTGRES_PASSWORD: telehealth_password
+      POSTGRES_DB: telehealth
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - telehealth-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U telehealth_user -d telehealth" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Database (MongoDB) - For Triage Service
+  mongodb:
+    image: mongo:7.0
+    command: [ "mongod", "--quiet", "--logpath", "/dev/null" ]
+    container_name: triage-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - telehealth-network
+    environment:
+      MONGO_INITDB_DATABASE: wound_triage
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:latest
+    container_name: telehealth-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - telehealth-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Auth Service
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth/Dockerfile
+    container_name: auth-service
+    environment:
+      DATABASE_URL: postgresql://telehealth_user:telehealth_password@postgres:5432/telehealth
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-here-change-in-production}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+    ports:
+      - "8001:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - telehealth-network
+    restart: unless-stopped
+
+  # Patient Service
+  patient-service:
+    build:
+      context: .
+      dockerfile: services/patient/Dockerfile
+    container_name: patient-service
+    environment:
+      DATABASE_URL: postgresql://telehealth_user:telehealth_password@postgres:5432/telehealth
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-here-change-in-production}
+      ALGORITHM: HS256
+    ports:
+      - "8002:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - telehealth-network
+    restart: unless-stopped
+
+  # Doctor Service
+  doctor-service:
+    build:
+      context: .
+      dockerfile: services/doctor/Dockerfile
+    container_name: doctor-service
+    environment:
+      DATABASE_URL: postgresql://telehealth_user:telehealth_password@postgres:5432/telehealth
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-here-change-in-production}
+      ALGORITHM: HS256
+    ports:
+      - "8003:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - telehealth-network
+    restart: unless-stopped
+
+  # Appointment Service
+  appointment-service:
+    build:
+      context: .
+      dockerfile: services/appointment/Dockerfile
+    container_name: appointment-service
+    environment:
+      DATABASE_URL: postgresql://telehealth_user:telehealth_password@postgres:5432/telehealth
+      REDIS_URL: redis://redis:6379
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-here-change-in-production}
+      ALGORITHM: HS256
+      NOTIFICATION_SERVICE_URL: http://notification-service:8000
+    ports:
+      - "8004:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - telehealth-network
+    restart: unless-stopped
+
+  # Family Service
+  family-service:
+    build:
+      context: .
+      dockerfile: services/family/Dockerfile
+    container_name: family-service
+    environment:
+      DATABASE_URL: postgresql://telehealth_user:telehealth_password@postgres:5432/telehealth
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-here-change-in-production}
+      ALGORITHM: HS256
+    ports:
+      - "8005:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - telehealth-network
+    restart: unless-stopped
+
+  # Chat Service
+  chat-service:
+    build:
+      context: .
+      dockerfile: services/chat/Dockerfile
+    container_name: chat-service
+    environment:
+      DATABASE_URL: postgresql://telehealth_user:telehealth_password@postgres:5432/telehealth
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-here-change-in-production}
+      ALGORITHM: HS256
+    ports:
+      - "8006:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - telehealth-network
+    restart: unless-stopped
+
+  # Admin Service
+  admin-service:
+    build:
+      context: .
+      dockerfile: services/admin/Dockerfile
+    container_name: admin-service
+    environment:
+      DATABASE_URL: postgresql://telehealth_user:telehealth_password@postgres:5432/telehealth
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-here-change-in-production}
+      ALGORITHM: HS256
+    ports:
+      - "8007:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - telehealth-network
+    restart: unless-stopped
+
+  # Wound Triage Service
+  wound-triage-service:
+    build:
+      context: wound_triage_api
+      dockerfile: Dockerfile
+    container_name: triage-service
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/
+      # Make sure to pass the OpenAI Key if available
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      COHERE_API_KEY: ${COHERE_API_KEY}
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-here-change-in-production}
+    ports:
+      - "8008:8000"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - telehealth-network
+    restart: unless-stopped
+
+  # Notification Service (New)
+  notification-service:
+    build:
+      context: services/notification
+      dockerfile: Dockerfile
+    container_name: notification-service
+    ports:
+      - "8009:8000"
+    networks:
+      - telehealth-network
+    restart: unless-stopped
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    container_name: api-gateway
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:8000
+      PATIENT_SERVICE_URL: http://patient-service:8000
+      DOCTOR_SERVICE_URL: http://doctor-service:8000
+      APPOINTMENT_SERVICE_URL: http://appointment-service:8000
+      FAMILY_SERVICE_URL: http://family-service:8000
+      CHAT_SERVICE_URL: http://chat-service:8000
+      ADMIN_SERVICE_URL: http://admin-service:8000
+      WOUND_TRIAGE_SERVICE_URL: http://triage-service:8000
+      NOTIFICATION_SERVICE_URL: http://notification-service:8000
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-here-change-in-production}
+      ALGORITHM: HS256
+    ports:
+      - "8000:8000"
+    depends_on:
+      - auth-service
+      - patient-service
+      - doctor-service
+      - appointment-service
+      - family-service
+      - chat-service
+      - admin-service
+      - wound-triage-service
+      - notification-service
+    networks:
+      - telehealth-network
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/app/frontend:ro
+
+networks:
+  telehealth-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mongodb_data:

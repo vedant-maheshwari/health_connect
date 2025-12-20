@@ -1,0 +1,25 @@
+
+# Triage Service Routes (Wound API)
+@app.api_route("/triage/{path:path}", methods=["GET", "POST", "OPTIONS"])
+async def triage_routes(path: str, request: Request):
+    """Triage routes (Public/Private handled by service)"""
+    if request.method == "OPTIONS":
+        return {}
+        
+    # Triage service might need token for some endpoints, extract if present
+    # But wound triage API handles auth internally or public access for some parts
+    token = None
+    if "Authorization" in request.headers:
+        token = request.headers["Authorization"].split(" ")[1]
+        
+    response = await proxy_request(SERVICES["triage"], f"/{path}", request, token)
+    return response
+
+# Notification Service Routes
+@app.api_route("/notifications/{path:path}", methods=["GET", "POST", "OPTIONS"])
+async def notification_routes(path: str, request: Request, token: str = Depends(oauth2_schema)):
+    """Notification routes (Internal usage or dev testing)"""
+    if request.method == "OPTIONS":
+        return {}
+    response = await proxy_request(SERVICES["notification"], f"/{path}", request, token)
+    return response

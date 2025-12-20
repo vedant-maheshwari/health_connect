@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telehealth Admin Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f7fa;
+      color: #2c3e50;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .header h1 { font-size: 1.5rem; }
+    
+    .user-info { display: flex; align-items: center; gap: 1rem; }
+    
+    .container {
+      max-width: 1400px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      display: grid;
+      grid-template-columns: 250px 1fr;
+      gap: 2rem;
+    }
+    
+    .sidebar {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      height: fit-content;
+      position: sticky;
+      top: 2rem;
+    }
+    
+    .sidebar ul {
+      list-style: none;
+    }
+    
+    .sidebar li {
+      margin-bottom: 0.5rem;
+    }
+    
+    .sidebar a {
+      display: block;
+      padding: 0.75rem 1rem;
+      text-decoration: none;
+      color: #5a6c7d;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+    
+    .sidebar a:hover, .sidebar a.active {
+      background: #667eea;
+      color: white;
+    }
+    
+    .main-content {
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      min-height: 600px;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+      background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+      color: white;
+      padding: 1.5rem;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    .stat-card.users { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+    .stat-card.appointments { background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #2c3e50; }
+    .stat-card.chats { background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); color: #2c3e50; }
+    .stat-card.vitals { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    
+    .stat-number {
+      font-size: 2.5rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+    
+    .section {
+      display: none;
+    }
+    
+    .section.active {
+      display: block;
+    }
+    
+    .table-container {
+      overflow-x: auto;
+      margin-top: 1rem;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    th, td {
+      padding: 1rem;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+    
+    th {
+      background: #f8f9fa;
+      font-weight: 600;
+      color: #495057;
+    }
+    
+    .btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      display: inline-block;
+      margin: 2px;
+    }
+    
+    .btn-primary { background: #007bff; color: white; }
+    .btn-danger { background: #dc3545; color: white; }
+    .btn-warning { background: #ffc107; color: #212529; }
+    .btn-success { background: #28a745; color: white; }
+    .btn-info { background: #17a2b8; color: white; }
+    .btn-secondary { background: #6c757d; color: white; }
+    
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .status-badge {
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+    
+    .status-pending { background: #fff3cd; color: #856404; }
+    .status-accepted { background: #d4edda; color: #155724; }
+    .status-accecpted { background: #d4edda; color: #155724; }
+    .status-rejected { background: #f8d7da; color: #721c24; }
+    
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #6c757d;
+    }
+    
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 1rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+    }
+    
+    .logs-container {
+      background: #1e1e1e;
+      color: #f8f8f2;
+      padding: 1rem;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      max-height: 500px;
+      overflow-y: auto;
+      font-size: 0.875rem;
+    }
+    
+    .log-entry {
+      margin-bottom: 0.5rem;
+      padding: 0.75rem;
+      border-left: 3px solid #6c757d;
+      padding-left: 1rem;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+    }
+    
+    .log-info { border-left-color: #28a745; }
+    .log-error { border-left-color: #dc3545; }
+    .log-warning { border-left-color: #ffc107; }
+    
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+    }
+    
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+    
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .checkbox-group input[type="checkbox"] {
+      width: auto;
+    }
+
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 2rem;
+      margin-top: 2rem;
+    }
+
+    .chart-container {
+      background: #f8f9fa;
+      padding: 1.5rem;
+      border-radius: 12px;
+      border: 1px solid #e9ecef;
+    }
+    
+    /* Chat Participants Modal Styles */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      backdrop-filter: blur(3px);
+    }
+    
+    .modal-content {
+      background-color: #fefefe;
+      margin: 5% auto;
+      padding: 2rem;
+      border-radius: 12px;
+      width: 80%;
+      max-width: 600px;
+      max-height: 80%;
+      overflow-y: auto;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid #dee2e6;
+    }
+    
+    .close-btn {
+      color: #aaa;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: color 0.2s ease;
+    }
+    
+    .close-btn:hover {
+      color: #dc3545;
+    }
+    
+    .participant-card {
+      padding: 0.75rem;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      background: #f8f9fa;
+      margin-bottom: 0.5rem;
+    }
+    
+    .participant-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .participant-name {
+      font-weight: 600;
+      color: #495057;
+    }
+    
+    .participant-email {
+      color: #6c757d;
+      font-size: 0.9em;
+    }
+    
+    @media (max-width: 768px) {
+      .container {
+        grid-template-columns: 1fr;
+        margin: 1rem;
+      }
+      
+      .sidebar {
+        position: relative;
+        top: 0;
+      }
+      
+      .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      }
+
+      .analytics-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .modal-content {
+        width: 95%;
+        margin: 10% auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🏥 Telehealth Admin Dashboard</h1>
+    <div class="user-info">
+      <span id="adminName">Loading...</span>
+      <button class="btn btn-danger" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="sidebar">
+      <ul>
+        <li><a href="#" onclick="showSection('dashboard')" class="active">📊 Dashboard</a></li>
+        <li><a href="#" onclick="showSection('users')">👥 Users</a></li>
+        <li><a href="#" onclick="showSection('appointments')">📅 Appointments</a></li>
+        <li><a href="#" onclick="showSection('chats')">💬 Chat Rooms</a></li>
+        <li><a href="#" onclick="showSection('analytics')">📈 Analytics</a></li>
+        <li><a href="#" onclick="showSection('logs')">📋 System Logs</a></li>
+        <li><a href="#" onclick="showSection('settings')">⚙️ Settings</a></li>
+      </ul>
+    </div>
+
+    <div class="main-content">
+      <!-- Dashboard Section -->
+      <div id="dashboard" class="section active">
+        <h2>System Overview</h2>
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card users">
+            <div class="stat-number" id="totalUsers">-</div>
+            <div class="stat-label">Total Users</div>
+          </div>
+          <div class="stat-card appointments">
+            <div class="stat-number" id="totalAppointments">-</div>
+            <div class="stat-label">Appointments</div>
+          </div>
+          <div class="stat-card chats">
+            <div class="stat-number" id="totalChats">-</div>
+            <div class="stat-label">Chat Rooms</div>
+          </div>
+          <div class="stat-card vitals">
+            <div class="stat-number" id="totalVitals">-</div>
+            <div class="stat-label">Vital Records</div>
+          </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem;">
+          <div>
+            <h3>System Status</h3>
+            <div id="systemStatus" class="loading">Checking system status...</div>
+          </div>
+          <div>
+            <h3>Quick Actions</h3>
+            <div>
+              <button class="btn btn-primary" onclick="showSection('users')">Manage Users</button>
+              <button class="btn btn-info" onclick="showSection('analytics')">View Analytics</button>
+              <button class="btn btn-warning" onclick="showSection('settings')">System Settings</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Users Section -->
+      <div id="users" class="section">
+        <h2>User Management</h2>
+        <div class="table-container">
+          <table id="usersTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <tr><td colspan="5" class="loading">Loading users...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Appointments Section -->
+      <div id="appointments" class="section">
+        <h2>Appointment Management</h2>
+        <div class="table-container">
+          <table id="appointmentsTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Patient</th>
+                <th>Doctor</th>
+                <th>Date & Time</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="appointmentsTableBody">
+              <tr><td colspan="5" class="loading">Loading appointments...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Chat Rooms Section - ENHANCED WITH PARTICIPANTS -->
+      <div id="chats" class="section">
+        <h2>Chat Room Management</h2>
+        
+        <div style="margin-bottom: 1rem;">
+          <button class="btn btn-success" onclick="createChatModal()">+ Create Chat Room</button>
+          <button class="btn btn-primary" onclick="loadChats()">🔄 Refresh</button>
+        </div>
+        
+        <div class="table-container">
+          <table id="chatsTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Participants</th>
+                <th>Participant Details</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="chatsTableBody">
+              <tr><td colspan="5" class="loading">Loading chat rooms...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Analytics Section -->
+      <div id="analytics" class="section">
+        <h2>System Analytics</h2>
+        <div class="stats-grid" id="analyticsStats">
+          <!-- Analytics stats will be loaded here -->
+        </div>
+        
+        <div class="analytics-grid">
+          <div class="chart-container">
+            <h3>Popular Doctors</h3>
+            <div id="popularDoctors" class="loading">Loading popular doctors...</div>
+          </div>
+          <div class="chart-container">
+            <h3>User Distribution</h3>
+            <div id="userDistribution" class="loading">Loading user distribution...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- System Logs Section -->
+      <div id="logs" class="section">
+        <h2>System Logs</h2>
+        <div style="margin-bottom: 1rem;">
+          <button class="btn btn-primary" onclick="refreshLogs()">🔄 Refresh Logs</button>
+          <button class="btn btn-info" onclick="loadLogs()">📋 Load Recent Logs</button>
+        </div>
+        
+        <div class="logs-container" id="logsContainer">
+          <div class="loading" style="color: #f8f8f2;">Loading system logs...</div>
+        </div>
+      </div>
+
+      <!-- Settings Section -->
+      <div id="settings" class="section">
+        <h2>System Settings</h2>
+        <div style="max-width: 600px;">
+          <form id="settingsForm">
+            <div class="form-group">
+              <label>Max Appointments Per Day:</label>
+              <input type="number" id="maxAppointments" min="1" max="200" value="50">
+            </div>
+            
+            <div class="form-group">
+              <label>Appointment Booking Advance Days:</label>
+              <input type="number" id="advanceDays" min="1" max="365" value="30">
+            </div>
+            
+            <div class="form-group">
+              <label>Max Chat Participants:</label>
+              <input type="number" id="maxChatParticipants" min="2" max="50" value="10">
+            </div>
+            
+            <div class="form-group">
+              <div class="checkbox-group">
+                <input type="checkbox" id="familyPermissions" checked>
+                <label for="familyPermissions">Enable Family Permissions</label>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <div class="checkbox-group">
+                <input type="checkbox" id="vitalsNotifications" checked>
+                <label for="vitalsNotifications">Enable Vitals Notifications</label>
+              </div>
+            </div>
+            
+            <div style="margin-top: 2rem;">
+              <button type="button" class="btn btn-success" onclick="saveSettings()">💾 Save Settings</button>
+              <button type="button" class="btn btn-warning" onclick="resetSettings()">🔄 Reset to Defaults</button>
+              <button type="button" class="btn btn-info" onclick="loadSettings()">📥 Reload Settings</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat Participants Modal -->
+  <div id="chatParticipantsModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalChatTitle">Chat Room Participants</h3>
+        <span class="close-btn" onclick="closeChatParticipantsModal()">&times;</span>
+      </div>
+      
+      <div id="participantsList">
+        <div class="loading">Loading participants...</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    const API_BASE_URL = API_CONFIG.getApiBaseUrl();
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+    
+    if (!token) {
+      window.location.href = 'login.html';
+    }
+
+    // Navigation
+    function showSection(sectionName) {
+      // Hide all sections
+      document.querySelectorAll('.section').forEach(section => {
+        section.classList.remove('active');
+      });
+      
+      // Remove active class from all nav links
+      document.querySelectorAll('.sidebar a').forEach(link => {
+        link.classList.remove('active');
+      });
+      
+      // Show selected section
+      document.getElementById(sectionName).classList.add('active');
+      event.target.classList.add('active');
+      
+      // Load section data
+      loadSectionData(sectionName);
+    }
+
+    async function loadSectionData(section) {
+      switch(section) {
+        case 'dashboard':
+          loadDashboard();
+          break;
+        case 'users':
+          loadUsers();
+          break;
+        case 'appointments':
+          loadAppointments();
+          break;
+        case 'chats':
+          loadChats();
+          break;
+        case 'analytics':
+          loadAnalytics();
+          break;
+        case 'logs':
+          loadLogs();
+          break;
+        case 'settings':
+          loadSettings();
+          break;
+      }
+    }
+
+    // Load admin user info
+    async function loadAdminInfo() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/user/me`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (!res.ok) throw new Error('Unauthorized');
+        
+        const user = await res.json();
+        document.getElementById('adminName').textContent = user.name;
+        
+        if (user.role !== 'admin') {
+          alert('Access denied. Admin privileges required.');
+          window.location.href = 'login.html';
+        }
+      } catch (error) {
+        console.error('Failed to load admin info:', error);
+        logout();
+      }
+    }
+
+    // Dashboard functions
+    async function loadDashboard() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/analytics/overview`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        const data = await res.json();
+        
+        // Update dashboard stats with correct data
+        document.getElementById('totalUsers').textContent = data.overview.total_users;
+        document.getElementById('totalAppointments').textContent = data.overview.total_appointments;
+        document.getElementById('totalChats').textContent = data.overview.total_chats;
+        document.getElementById('totalVitals').textContent = data.overview.vitals_recorded;
+        
+        // System status with detailed breakdown
+        const statusHTML = `
+          <div style="padding: 1rem; border-radius: 8px; background: #d4edda; color: #155724;">
+            <strong>✅ System Running</strong><br>
+            <div style="margin-top: 0.5rem;">
+              👥 Users: ${data.overview.total_users} (${data.overview.patients} patients, ${data.overview.doctors} doctors, ${data.overview.family_members} family)<br>
+              📅 Appointments: ${data.overview.total_appointments} (${data.overview.pending_appointments} pending, ${data.overview.accepted_appointments} accepted)<br>
+              💬 Chats: ${data.overview.total_chats} | 📊 Vitals: ${data.overview.vitals_recorded}<br>
+              Last Update: ${new Date().toLocaleTimeString()}
+            </div>
+          </div>
+        `;
+        document.getElementById('systemStatus').innerHTML = statusHTML;
+        
+      } catch (error) {
+        console.error('Failed to load dashboard:', error);
+        document.getElementById('systemStatus').innerHTML = '<div class="error">Failed to load system status</div>';
+      }
+    }
+
+    // Analytics functions
+    async function loadAnalytics() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/analytics/overview`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        const data = await res.json();
+        
+        // Update analytics stats
+        const analyticsStats = document.getElementById('analyticsStats');
+        analyticsStats.innerHTML = `
+          <div class="stat-card users">
+            <div class="stat-number">${data.overview.patients}</div>
+            <div class="stat-label">Patients</div>
+          </div>
+          <div class="stat-card appointments">
+            <div class="stat-number">${data.overview.doctors}</div>
+            <div class="stat-label">Doctors</div>
+          </div>
+          <div class="stat-card chats">
+            <div class="stat-number">${data.overview.family_members}</div>
+            <div class="stat-label">Family Members</div>
+          </div>
+          <div class="stat-card vitals">
+            <div class="stat-number">${data.overview.pending_appointments}</div>
+            <div class="stat-label">Pending Appointments</div>
+          </div>
+        `;
+        
+        // Popular doctors
+        const popularDoctorsDiv = document.getElementById('popularDoctors');
+        if (data.popular_doctors && data.popular_doctors.length > 0) {
+          popularDoctorsDiv.innerHTML = `
+            <table style="width: 100%;">
+              <thead>
+                <tr>
+                  <th>Doctor</th>
+                  <th>Appointments</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.popular_doctors.map(doc => 
+                  `<tr><td>${doc.name}</td><td>${doc.appointment_count}</td></tr>`
+                ).join('')}
+              </tbody>
+            </table>
+          `;
+        } else {
+          popularDoctorsDiv.innerHTML = '<p>No appointment data available</p>';
+        }
+        
+        // User distribution
+        const userDistDiv = document.getElementById('userDistribution');
+        userDistDiv.innerHTML = `
+          <div style="padding: 1rem;">
+            <div style="margin: 0.5rem 0;"><strong>Patients:</strong> ${data.overview.patients}</div>
+            <div style="margin: 0.5rem 0;"><strong>Doctors:</strong> ${data.overview.doctors}</div>
+            <div style="margin: 0.5rem 0;"><strong>Family:</strong> ${data.overview.family_members}</div>
+            <div style="margin: 0.5rem 0;"><strong>Total:</strong> ${data.overview.total_users}</div>
+          </div>
+        `;
+        
+      } catch (error) {
+        console.error('Failed to load analytics:', error);
+        document.getElementById('analyticsStats').innerHTML = '<div class="error">Failed to load analytics</div>';
+      }
+    }
+
+    // Users functions
+    async function loadUsers() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/users`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        const users = await res.json();
+        const tbody = document.getElementById('usersTableBody');
+        
+        if (users.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5">No users found</td></tr>';
+          return;
+        }
+        
+        tbody.innerHTML = users.map(user => `
+          <tr>
+            <td>${user.id}</td>
+            <td>${user.name}</td>
+            <td>${user.email}</td>
+            <td><span class="status-badge">${user.role}</span></td>
+            <td>
+              <button class="btn btn-danger" onclick="deleteUser(${user.id}, '${user.name.replace(/'/g, "\\'")}')">Delete</button>
+            </td>
+          </tr>
+        `).join('');
+        
+        console.log(`Loaded ${users.length} users`);
+        
+      } catch (error) {
+        console.error('Failed to load users:', error);
+        document.getElementById('usersTableBody').innerHTML = '<tr><td colspan="5" class="error">Failed to load users</td></tr>';
+      }
+    }
+
+    async function deleteUser(userId, userName) {
+      if (!confirm(`Are you sure you want to delete user "${userName}"?`)) return;
+      
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/users/${userId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (res.ok) {
+          alert('User deleted successfully');
+          loadUsers();
+        } else {
+          const error = await res.json();
+          alert('Failed to delete user: ' + error.detail);
+        }
+      } catch (error) {
+        alert('Error deleting user');
+      }
+    }
+
+    // Appointments functions
+    async function loadAppointments() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/appointments`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        const appointments = await res.json();
+        const tbody = document.getElementById('appointmentsTableBody');
+        
+        tbody.innerHTML = appointments.map(apt => `
+          <tr>
+            <td>${apt.id}</td>
+            <td>${apt.patient_name}</td>
+            <td>${apt.doctor_name}</td>
+            <td>${new Date(apt.date_time).toLocaleString()}</td>
+            <td><span class="status-badge status-${apt.status.toLowerCase()}">${apt.status}</span></td>
+          </tr>
+        `).join('');
+        
+      } catch (error) {
+        document.getElementById('appointmentsTableBody').innerHTML = '<tr><td colspan="5" class="error">Failed to load appointments</td></tr>';
+      }
+    }
+
+    // Enhanced Chat functions with participant display
+    async function loadChats() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/chats`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        const chats = await res.json();
+        const tbody = document.getElementById('chatsTableBody');
+        
+        if (chats.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5">No chat rooms found</td></tr>';
+          return;
+        }
+        
+        tbody.innerHTML = chats.map(chat => `
+          <tr>
+            <td>${chat.id}</td>
+            <td><strong>${chat.name}</strong></td>
+            <td>
+              <span class="status-badge" style="background: #007bff; color: white;">
+                ${chat.participant_count} members
+              </span>
+            </td>
+            <td>
+              <div style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">
+                ${chat.participants.slice(0, 2).map(p => p.name).join(', ')}
+                ${chat.participants.length > 2 ? '...' : ''}
+              </div>
+            </td>
+            <td>
+              <button class="btn btn-info" onclick="viewChatParticipants(${chat.id}, '${chat.name}', ${JSON.stringify(chat.participants).replace(/"/g, '&quot;')})">👥 View Members</button>
+              <button class="btn btn-danger" onclick="deleteChatRoom(${chat.id}, '${chat.name}')">🗑️ Delete</button>
+            </td>
+          </tr>
+        `).join('');
+        
+      } catch (error) {
+        console.error('Chat loading error:', error);
+        document.getElementById('chatsTableBody').innerHTML = '<tr><td colspan="5" class="error">Failed to load chats</td></tr>';
+      }
+    }
+
+    // View chat participants in modal
+    function viewChatParticipants(chatId, chatName, participants) {
+      document.getElementById('modalChatTitle').textContent = `${chatName} - Participants`;
+      
+      const participantsList = document.getElementById('participantsList');
+      
+      if (participants.length === 0) {
+        participantsList.innerHTML = '<p style="text-align: center; color: #6c757d;">No participants in this chat room</p>';
+      } else {
+        const participantsHTML = `
+          <div style="margin-bottom: 1rem;">
+            <strong>Total Members: ${participants.length}</strong>
+          </div>
+          
+          <div style="display: grid; gap: 1rem;">
+            ${participants.map(participant => `
+              <div class="participant-card">
+                <div class="participant-info">
+                  <div>
+                    <div class="participant-name">${participant.name}</div>
+                    <div class="participant-email">${participant.email}</div>
+                  </div>
+                  <div>
+                    <span class="status-badge ${getRoleBadgeClass(participant.role)}">
+                      ${participant.role}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          
+          <div style="margin-top: 1.5rem; text-align: center; border-top: 1px solid #dee2e6; padding-top: 1rem;">
+            <button class="btn btn-warning" onclick="removeAllParticipants(${chatId})">
+              🚫 Remove All Participants
+            </button>
+            <button class="btn btn-secondary" onclick="closeChatParticipantsModal()">
+              Close
+            </button>
+          </div>
+        `;
+        
+        participantsList.innerHTML = participantsHTML;
+      }
+      
+      document.getElementById('chatParticipantsModal').style.display = 'block';
+    }
+
+    // Get role-specific badge classes
+    function getRoleBadgeClass(role) {
+      switch(role.toLowerCase()) {
+        case 'doctor': return 'status-accepted'; // Green
+        case 'patient': return 'status-pending'; // Yellow
+        case 'family': return 'status-rejected'; // Red (for distinction)
+        case 'admin': return 'status-badge'; // Default
+        default: return 'status-badge';
+      }
+    }
+
+    // Close participants modal
+    function closeChatParticipantsModal() {
+      document.getElementById('chatParticipantsModal').style.display = 'none';
+    }
+
+    // Remove all participants from chat room
+    async function removeAllParticipants(chatId) {
+      if (!confirm('Are you sure you want to remove ALL participants from this chat room? This cannot be undone.')) {
+        return;
+      }
+      
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/chats/${chatId}/participants`, {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (res.ok) {
+          alert('All participants removed successfully');
+          closeChatParticipantsModal();
+          loadChats(); // Refresh the chat list
+        } else {
+          alert('Failed to remove participants');
+        }
+      } catch (error) {
+        alert('Error removing participants');
+      }
+    }
+
+    function createChatModal() {
+      alert('Create chat room functionality - to be implemented');
+    }
+
+    // Enhanced delete chat room function
+    async function deleteChatRoom(chatId, chatName) {
+      const confirmation = confirm(
+        `🗑️ DELETE CHAT ROOM\n\n` +
+        `Room: "${chatName}"\n` +
+        `This will permanently delete the chat room and all messages.\n\n` +
+        `Are you sure you want to continue?`
+      );
+      
+      if (!confirmation) return;
+      
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/chats/${chatId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (res.ok) {
+          alert('✅ Chat room deleted successfully');
+          loadChats();
+        } else {
+          const error = await res.json();
+          alert('❌ Failed to delete chat room: ' + (error.detail || 'Unknown error'));
+        }
+      } catch (error) {
+        alert('❌ Error deleting chat room');
+      }
+    }
+
+    function displayLogs(logs, stats) {
+      const container = document.getElementById('logsContainer');
+      
+      // Stats summary (if available)
+      let statsHtml = '';
+      if (stats && stats.statistics) {
+        statsHtml = `
+          <div style="margin-bottom: 1rem; padding: 1rem; background: #2c3e50; border-radius: 8px;">
+            <strong>Log Statistics (24h):</strong>
+            INFO: ${stats.statistics?.INFO || 0} | 
+            WARNING: ${stats.statistics?.WARNING || 0} | 
+            ERROR: ${stats.statistics?.ERROR || 0}
+          </div>
+        `;
+      }
+      
+      // Enhanced log entries with IP addresses and HTTP info
+      const logEntries = logs.logs.map(log => {
+        const levelClass = `log-${log.level.toLowerCase()}`;
+        
+        // Format log entry with enhanced details
+        let logContent = '';
+        if (log.ip && log.method && log.path) {
+          // HTTP request log format
+          logContent = `
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+              <div style="flex: 1; min-width: 300px;">
+                <strong>[${log.level}]</strong> ${log.timestamp}
+                <span style="color: #6c757d;"> - ${log.ip}${log.port ? ':' + log.port : ''}</span>
+              </div>
+              <div style="font-family: monospace; font-size: 0.9em; margin-top: 0.5rem;">
+                <span style="color: #28a745; font-weight: bold;">${log.method}</span>
+                <span style="color: #17a2b8; margin: 0 0.5rem;">${log.path}</span>
+                <span style="color: ${getStatusColor(log.status)}; font-weight: bold;">
+                  ${log.status}
+                </span>
+              </div>
+            </div>
+            <div style="margin-top: 0.3rem; color: #e9ecef; font-size: 0.85em;">
+              ${log.message}
+            </div>
+          `;
+        } else {
+          // Regular log format
+          logContent = `
+            <strong>[${log.level}]</strong> ${log.timestamp} - ${log.message}
+            <span style="opacity: 0.7; font-size: 0.8em;"> (${log.source})</span>
+          `;
+        }
+        
+        return `<div class="log-entry ${levelClass}">${logContent}</div>`;
+      }).join('');
+      
+      container.innerHTML = statsHtml + logEntries;
+    }
+
+    function getStatusColor(status) {
+      if (status.startsWith('2')) return '#28a745'; // Success - green
+      if (status.startsWith('3')) return '#17a2b8'; // Redirect - blue
+      if (status.startsWith('4')) return '#ffc107'; // Client error - yellow
+      if (status.startsWith('5')) return '#dc3545'; // Server error - red
+      return '#6c757d'; // Default - gray
+    }
+
+    // Logs functions
+    async function loadLogs() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/logs/recent?limit=100`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        const data = await res.json();
+        displayLogs(data, null);
+        
+      } catch (error) {
+        console.error('Failed to load logs:', error);
+        document.getElementById('logsContainer').innerHTML = 
+          '<div class="error" style="color: #dc3545;">Failed to load logs</div>';
+      }
+    }
+
+    function refreshLogs() {
+      loadLogs();
+    }
+
+    // Settings functions
+    async function loadSettings() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/settings`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        const settings = await res.json();
+        
+        // Populate form fields
+        document.getElementById('maxAppointments').value = settings.max_appointments_per_day;
+        document.getElementById('advanceDays').value = settings.appointment_booking_advance_days;
+        document.getElementById('maxChatParticipants').value = settings.max_chat_participants;
+        document.getElementById('familyPermissions').checked = settings.enable_family_permissions;
+        document.getElementById('vitalsNotifications').checked = settings.enable_vitals_notifications;
+        
+      } catch (error) {
+        console.error('Failed to load settings:', error);
+        alert('Failed to load settings');
+      }
+    }
+
+    async function saveSettings() {
+      const settings = {
+        max_appointments_per_day: parseInt(document.getElementById('maxAppointments').value),
+        appointment_booking_advance_days: parseInt(document.getElementById('advanceDays').value),
+        max_chat_participants: parseInt(document.getElementById('maxChatParticipants').value),
+        enable_family_permissions: document.getElementById('familyPermissions').checked,
+        enable_vitals_notifications: document.getElementById('vitalsNotifications').checked
+      };
+      
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/settings`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(settings)
+        });
+        
+        if (res.ok) {
+          alert('Settings saved successfully!');
+        } else {
+          alert('Failed to save settings');
+        }
+        
+      } catch (error) {
+        console.error('Error saving settings:', error);
+        alert('Error saving settings');
+      }
+    }
+
+    function resetSettings() {
+      document.getElementById('maxAppointments').value = 50;
+      document.getElementById('advanceDays').value = 30;
+      document.getElementById('maxChatParticipants').value = 10;
+      document.getElementById('familyPermissions').checked = true;
+      document.getElementById('vitalsNotifications').checked = true;
+    }
+
+    function logout() {
+      sessionStorage.clear();
+      localStorage.clear();
+      window.location.href = 'login.html';
+    }
+
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+      const modal = document.getElementById('chatParticipantsModal');
+      if (event.target === modal) {
+        closeChatParticipantsModal();
+      }
+    }
+
+    // Initialize dashboard
+    document.addEventListener('DOMContentLoaded', () => {
+      loadAdminInfo();
+      loadDashboard();
+      
+      // Set up periodic refresh for logs when on logs page
+      setInterval(() => {
+        const activeSection = document.querySelector('.section.active');
+        if (activeSection && activeSection.id === 'logs') {
+          loadLogs();
+        }
+      }, 30000); // Refresh every 30 seconds
+    });
+  </script>
+</body>
+</html>
