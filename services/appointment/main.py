@@ -39,6 +39,11 @@ redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 
 HOLD_TTL = 5 * 60  # 5 minutes
 
+# Utility function to create a unique slot key for Redis
+def make_slot_key(doctor_id: int, slot_datetime: datetime) -> str:
+    """Create a unique key for a slot reservation in Redis"""
+    return f"{doctor_id}:{slot_datetime.isoformat()}"
+
 # WebSocket connection manager
 class ConnectionManager:
     def __init__(self):
@@ -136,9 +141,21 @@ async def get_doctor_free_slots(doctor_id: int, date: datetime, db: Session, sev
     current_time = datetime.combine(date, doctor_availability.start_time)
     end_of_day = datetime.combine(date, doctor_availability.end_time)
     
+    # IST Awareness for filtering past slots
+    utc_now = datetime.utcnow()
+    ist_now = utc_now + timedelta(hours=5, minutes=30)
+    # Ensure ist_now is naive for comparison if date is naive
+    if ist_now.tzinfo:
+        ist_now = ist_now.replace(tzinfo=None)
+    
     while current_time + timedelta(minutes=required_duration) <= end_of_day:
         slot_start = current_time
         slot_end = current_time + timedelta(minutes=required_duration)
+        
+        # Filter past slots logic
+        if slot_start < ist_now:
+            current_time += timedelta(minutes=step_minutes)
+            continue
         
         # Check Overlap with Booked
         is_blocked = False
@@ -218,7 +235,11 @@ async def find_best_slot(
         
     # 2. Search for slots starting from today
     # Limit search to next 7 days for performance
-    today = datetime.now().date()
+    # Use IST for accurate local time comparison
+    utc_now = datetime.utcnow()
+    ist_now = utc_now + timedelta(hours=5, minutes=30)
+    today = ist_now.date()
+    current_time_ist = ist_now.time()
     
     best_slot = None
     
@@ -234,9 +255,9 @@ async def find_best_slot(
                 first_slot_time = slots[0] # List is already sorted by natural availability
                 
                 # If today, ensure time is in future
-                if i == 0 and first_slot_time <= datetime.now().time():
-                    # Check next slots
-                    valid_slots = [s for s in slots if s > datetime.now().time()]
+                if i == 0:
+                    # Filter out past slots for today using IST
+                    valid_slots = [s for s in slots if s > current_time_ist]
                     if not valid_slots:
                         continue
                     first_slot_time = valid_slots[0]
@@ -346,12 +367,21 @@ async def confirm_slot(
     if not reserved_user_id or int(reserved_user_id) != patient_id:
         raise HTTPException(status_code=403, detail="Slot not reserved by this patient")
     
+    # Extract optional triage context from confirmation
+    severity = confirmation.get("severity", 1)
+    triage_id = confirmation.get("triage_id")
+    ai_notes = confirmation.get("ai_notes")
+    
     # Create appointment for PATIENT
     appointment = models.Appointments(
         patient_id=patient_id,  # Use patient_id
         doctor_id=doctor_id,
         date_time=slot_datetime,
-        status=models.Status.PENDING
+        status=models.Status.PENDING,
+        severity=severity,
+        triage_id=triage_id,
+        ai_notes=ai_notes,
+        booking_source="ai" if triage_id else "web"
     )
     db.add(appointment)
     db.commit()
@@ -543,7 +573,8 @@ async def get_all_appointments(
             "status": app.status.value,
             "severity": getattr(app, "severity", 1), 
             "triage_id": getattr(app, "triage_id", None),
-            "booking_source": getattr(app, "booking_source", "web")
+            "booking_source": getattr(app, "booking_source", "web"),
+            "ai_notes": getattr(app, "ai_notes", None)
         })
     
     return result

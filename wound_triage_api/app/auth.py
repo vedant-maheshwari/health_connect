@@ -70,11 +70,13 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
     return current_user
 
 async def get_current_doctor(current_user: User = Depends(get_current_active_user)):
-    if current_user.role not in ["doctor", "admin"]:
+    # Case-insensitive check - main system uses uppercase (DOCTOR, ADMIN)
+    if current_user.role.upper() not in ["DOCTOR", "ADMIN"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     return current_user
 
 async def get_current_admin(current_user: User = Depends(get_current_active_user)):
-    if current_user.role != "admin":
+    # Case-insensitive check
+    if current_user.role.upper() != "ADMIN":
         raise HTTPException(status_code=403, detail="Not authorized")
     return current_user

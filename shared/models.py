@@ -184,6 +184,8 @@ class Appointments(Base):
     triage_id: Mapped[str] = mapped_column(nullable=True)
     delay_minutes: Mapped[int] = mapped_column(default=0)
     booking_source: Mapped[str] = mapped_column(String(20), default="web", nullable=True)  # web, sms, ai
+    ai_notes: Mapped[str] = mapped_column(Text, nullable=True)  # AI analysis notes
+    doctor_notes: Mapped[str] = mapped_column(Text, nullable=True)  # Doctor feedback
 
 
 # Update Vitals model

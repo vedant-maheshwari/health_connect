@@ -160,21 +160,21 @@ async def assess_symptoms(
         
         # Determine recommended action and priority
         severity_color = {
-            5: "🔴 Critical",
-            4: "🟠 Urgent", 
-            3: "🟡 Moderate",
-            2: "🟢 Mild",
-            1: "⚪ Minor"
+            5: "Critical",
+            4: "Urgent", 
+            3: "Moderate",
+            2: "Mild",
+            1: "Minor"
         }
         
         if result.severity >= 4:
-            recommended_action = "🚨 Seek immediate medical attention (Emergency/ER)"
+            recommended_action = "Seek immediate medical attention (Emergency/ER)"
         elif result.severity == 3:
-            recommended_action = "📅 Schedule specialist appointment within 1-2 days"
+            recommended_action = "Schedule specialist appointment within 1-2 days"
         elif result.severity == 2:
-            recommended_action = "📞 Contact your doctor within the week"
+            recommended_action = "Contact your doctor within the week"
         else:
-            recommended_action = "🏠 Monitor symptoms, routine follow-up if needed"
+            recommended_action = "Monitor symptoms, routine follow-up if needed"
         
         urgency_minutes = {
             5: 15,
@@ -211,6 +211,49 @@ async def assess_symptoms(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+@app.get("/triage/history")
+async def get_triage_history(
+    limit: int = Query(10, ge=1, le=50),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get the current user's triage assessment history"""
+    try:
+        from app.database import feedback_collection
+        
+        # Query cases for this user from MongoDB feedback collection
+        user_email = current_user.username
+        
+        # Find all feedback/cases matching this user
+        cases = list(feedback_collection().find({
+            "$or": [
+                {"patient_id": user_email},
+                # {"patient_id": current_user.username}, # Redundant
+                {"email": user_email}
+            ]
+        }).sort("timestamp", -1).limit(limit))
+        
+        # Format for frontend
+        result = []
+        for case in cases:
+            result.append({
+                "case_id": str(case.get("_id", "")),
+                "timestamp": case.get("timestamp", case.get("created_at", "")),
+                "severity": case.get("ai_severity", case.get("severity", 1)),
+                "priority": case.get("ai_priority", case.get("priority", "low")),
+                "analysis": case.get("ai_analysis", case.get("notes", "")),
+                "recommended_action": case.get("recommended_action", ""),
+                "status": case.get("status", "submitted"),
+                "specialty": case.get("specialty", "General"),
+                "notes": case.get("notes", case.get("ai_analysis", "")),
+                "validated": case.get("validated", False)
+            })
+        
+        return {"history": result, "count": len(result)}
+        
+    except Exception as e:
+        print(f"Error getting triage history: {e}")
+        return {"history": [], "count": 0}
 
 # ============================================================
 # Doctor Review Endpoints

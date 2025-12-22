@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -11,14 +12,16 @@
       background: linear-gradient(110deg, #e3f2fd 0%, #f5f5f5 100%);
       min-height: 100vh;
     }
+
     .container {
       max-width: 700px;
       margin: 36px auto 20px auto;
       background: #fff;
       padding: 42px 36px 30px 36px;
       border-radius: 16px;
-      box-shadow: 0 6px 32px rgba(66,133,244,0.10);
+      box-shadow: 0 6px 32px rgba(66, 133, 244, 0.10);
     }
+
     .step-title {
       font-size: 22px;
       font-weight: 900;
@@ -26,16 +29,20 @@
       margin-bottom: 18px;
       letter-spacing: 0;
     }
+
     label {
       display: block;
       color: #333;
       font-weight: 600;
       margin-bottom: 6px;
     }
+
     .form-group {
       margin-bottom: 30px;
     }
-    input, select {
+
+    input,
+    select {
       font-size: 16px;
       padding: 12px 16px;
       border: 2px solid #e3e6ea;
@@ -46,10 +53,13 @@
       margin-top: 4px;
       transition: border-color .2s;
     }
-    input:focus, select:focus {
+
+    input:focus,
+    select:focus {
       border-color: #1976d2;
       background: #fff;
     }
+
     button {
       padding: 12px 26px;
       background: #1976d2;
@@ -63,9 +73,11 @@
       cursor: pointer;
       transition: background .18s;
     }
+
     button:hover:enabled {
       background: #1564b0;
     }
+
     button:disabled {
       background: #bfc8d5;
       cursor: not-allowed;
@@ -82,6 +94,7 @@
       color: #125ea2;
       box-shadow: 0 2px 8px #c7dcfa24;
     }
+
     .booking-for {
       background-color: #fffbe7;
       border-left: 5px solid #ffca28;
@@ -92,6 +105,7 @@
       font-size: 16px;
       font-weight: 600;
     }
+
     .slots-container {
       margin-top: 16px;
       padding: 16px 18px 8px 18px;
@@ -101,6 +115,7 @@
       background: #f9fcff;
       box-shadow: 0 1px 8px #2057920e;
     }
+
     .slot {
       padding: 12px 26px;
       margin: 8px 12px 8px 0;
@@ -111,20 +126,22 @@
       background-color: #f1fafe;
       font-size: 16px;
       font-weight: 600;
-      transition: 
-        background .2s, 
-        color .2s, 
-        box-shadow .2s, 
-        border .2s, 
+      transition:
+        background .2s,
+        color .2s,
+        box-shadow .2s,
+        border .2s,
         transform .15s;
       box-shadow: 0 2px 8px #1976d225;
       user-select: none;
       position: relative;
     }
+
     .slot:hover:not(.reserved):not(.selected) {
       background: #e3f0fc;
       transform: translateY(-2px) scale(1.04);
     }
+
     .slot.selected {
       background: #28a745;
       color: white;
@@ -132,6 +149,7 @@
       box-shadow: 0 2px 14px #28a74527;
       transform: scale(1.09);
     }
+
     .slot.reserved {
       background: #dc3545;
       color: white;
@@ -141,28 +159,33 @@
       opacity: 0.65;
       box-shadow: 0 2px 14px #dc354527;
     }
+
     .actions {
       margin-top: 28px;
       text-align: right;
     }
+
     .status {
       margin-top: 22px;
       padding: 12px;
       border-radius: 6px;
       display: none;
     }
+
     .status.success {
       background-color: #e0f9e2;
       color: #116b34;
       border: 1.5px solid #94e2a8;
       font-size: 16px;
     }
+
     .status.error {
       background-color: #fbe4e6;
       color: #a10026;
       border: 1.5px solid #e39596;
       font-size: 16px;
     }
+
     .websocket-status {
       padding: 8px 13px;
       border-radius: 5px;
@@ -170,77 +193,103 @@
       font-size: 13px;
       display: inline-block;
     }
+
     .connected {
       background-color: #e7fbe7;
       color: #1c8d2e;
       border: 1.5px solid #51db7c;
     }
+
     .disconnected {
       background-color: #fff0f2;
       color: #a10020;
       border: 1.5px solid #e39596;
     }
+
     /* Modal styles */
-    .modal { 
-      position: fixed; 
-      top: 0; left: 0; 
-      width: 100%; height: 100%; 
-      background: rgba(0,0,0,0.5); 
-      display: none; 
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
       z-index: 9999;
     }
-    .modal-content { 
-      background: white; 
-      margin: 10% auto; 
-      padding: 42px 24px 24px 24px; 
-      width: 340px; 
-      border-radius: 14px; 
-      text-align: center; 
-      box-shadow: 0 12px 40px rgba(0,0,0,0.10);
+
+    .modal-content {
+      background: white;
+      margin: 10% auto;
+      padding: 42px 24px 24px 24px;
+      width: 340px;
+      border-radius: 14px;
+      text-align: center;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.10);
       border-top: 6px solid #4285f4;
       animation: modalSlideIn 0.34s;
     }
+
     @keyframes modalSlideIn {
-      from { transform: scale(0.96) translateY(-25px);}
-      to { transform: scale(1) translateY(0);}
+      from {
+        transform: scale(0.96) translateY(-25px);
+      }
+
+      to {
+        transform: scale(1) translateY(0);
+      }
     }
+
     .modal-content button {
       margin: 8px;
       min-width: 100px;
       font-size: 16px;
     }
+
     @media (max-width: 600px) {
       .container {
         max-width: 99vw;
         padding: 2vw 1vw 8vw 1vw;
       }
-      .modal-content { width: 97vw; }
-      .slots-container { padding: 10px 3vw 6px 3vw; }
-      .slot { font-size: 15px; padding: 12px 6vw;}
+
+      .modal-content {
+        width: 97vw;
+      }
+
+      .slots-container {
+        padding: 10px 3vw 6px 3vw;
+      }
+
+      .slot {
+        font-size: 15px;
+        padding: 12px 6vw;
+      }
     }
   </style>
 </head>
+
 <body>
-  
+
   <div class="container">
-      <button id="backBtn" style="margin-bottom:18px;background:#e3e6ea;color:#1976d2;border:1.5px solid #1976d2;">&#8592; Back</button>
+    <button id="backBtn" style="margin-bottom:18px;background:#e3e6ea;color:#1976d2;border:1.5px solid #1976d2;">&#8592;
+      Back</button>
 
     <div class="step-title">Book a Doctor's Appointment</div>
-    
+
     <div id="userInfo" class="user-info">
       <h3>Loading user information...</h3>
     </div>
     <div id="bookingFor" class="booking-for" style="display: none;">
       <strong>Booking appointment for:</strong> <span id="patientName"></span>
     </div>
-    
+
     <div class="form-group">
       <label for="doctorSelect">Select Doctor:</label>
       <select id="doctorSelect">
         <option value="">Loading doctors...</option>
       </select>
     </div>
-    
+
     <div class="form-group">
       <label for="dateInput">Pick a Date:</label>
       <input id="dateInput" type="date" />
@@ -250,7 +299,8 @@
       <span id="wsStatus" class="websocket-status disconnected">Not Connected</span>
     </div>
     <div class="slots-container">
-      <h3 style="font-weight:700;font-size:20px;margin:2px 0 14px 0;color:#1976d2;letter-spacing:0.1em;">Available Slots</h3>
+      <h3 style="font-weight:700;font-size:20px;margin:2px 0 14px 0;color:#1976d2;letter-spacing:0.1em;">Available Slots
+      </h3>
       <div id="slotsContainer">
         <p style="font-size:17px;color:#888;margin-top:13px;">Select a doctor and date to view slots</p>
       </div>
@@ -276,14 +326,14 @@
   <script src="config.js"></script>
   <script>
     // Environment-aware API URL
-  
+
     const API_BASE_URL = API_CONFIG.getApiBaseUrl();
-    const API_BASE_URL_WS = window.location.hostname.includes('azurewebsites.net') 
-      ? window.location.host 
+    const API_BASE_URL_WS = window.location.hostname.includes('azurewebsites.net')
+      ? window.location.host
       : "localhost:8000";
 
     const token = sessionStorage.getItem("token") || localStorage.getItem("token");
-    
+
     if (!token) {
       alert("You must be logged in!");
       window.location.href = "login.html";
@@ -329,9 +379,9 @@
       checkForFamilyBooking();
     });
 
-    document.getElementById('backBtn').onclick = function() {
-  window.history.back();
-};
+    document.getElementById('backBtn').onclick = function () {
+      window.history.back();
+    };
 
 
     function showStatus(message, isError = false) {
@@ -351,7 +401,7 @@
           ...options.headers
         }
       };
-      
+
       try {
         const response = await fetch(url, { ...options, headers: defaultOptions.headers });
         if (!response.ok) {
@@ -368,7 +418,7 @@
     async function loadCurrentUser() {
       try {
         currentUser = await fetchWithAuth(`${API_BASE_URL}/user/me`);
-        
+
         userInfo.innerHTML = `
           <h3>👤 ${currentUser.name}</h3>
           <p><strong>Email:</strong> ${currentUser.email}</p>
@@ -383,7 +433,7 @@
     async function loadDoctors() {
       try {
         const doctors = await fetchWithAuth(`${API_BASE_URL}/all_doctors`);
-        
+
         doctorSelect.innerHTML = '<option value="">-- Select Doctor --</option>';
         doctors.forEach(doctor => {
           const option = document.createElement('option');
@@ -404,7 +454,7 @@
           bookingForPatient = JSON.parse(bookingData);
           bookingForDiv.style.display = 'block';
           patientNameSpan.textContent = bookingForPatient.patientName;
-          
+
           // Clear the session storage
           sessionStorage.removeItem('bookingForPatient');
         } catch (error) {
@@ -610,6 +660,24 @@
         appointment_date: appointmentDateTime
       };
 
+      // Check for triage context from AI booking redirect
+      const triageContextStr = sessionStorage.getItem('triageContext');
+      console.log('Triage context from sessionStorage:', triageContextStr);
+      if (triageContextStr) {
+        try {
+          const triageContext = JSON.parse(triageContextStr);
+          console.log('Parsed triage context:', triageContext);
+          appointment.severity = triageContext.severity || 1;
+          appointment.triage_id = triageContext.triage_id || null;
+          appointment.ai_notes = triageContext.analysis || null;
+          console.log('Appointment with triage context:', appointment);
+          // Clear the context after using
+          sessionStorage.removeItem('triageContext');
+        } catch (e) {
+          console.error('Error parsing triage context:', e);
+        }
+      }
+
       const userId = bookingForPatient ? bookingForPatient.patientId : currentUser.id;
 
       try {
@@ -623,7 +691,7 @@
         showStatus(`Booking confirmed successfully${bookingText}!`);
         ownReservedKey = null;
         modal.style.display = 'none';
-        
+
         // If family member, redirect back to family dashboard
         if (bookingForPatient) {
           setTimeout(() => {
@@ -675,4 +743,5 @@
     };
   </script>
 </body>
+
 </html>

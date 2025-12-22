@@ -386,6 +386,14 @@ async def sms_webhook(request: Request):
     # Send reply
     result = send_sms(phone, response_text)
     
+    if not result.get("success", False):
+        # If sending failed, remove from dedup cache to allow retry
+        # This prevents the user from being blocked if the gateway timed out
+        msg_hash = get_message_hash(phone, message)
+        if msg_hash in processed_messages:
+            del processed_messages[msg_hash]
+            print(f"[INCOMING SMS] Sending failed, cleared dedup cache for retry")
+    
     return {"status": "ok", "reply_sent": result.get("success", False)}
 
 

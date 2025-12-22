@@ -133,7 +133,7 @@
     }
 
     .slot.priority:after {
-      content: '⚡';
+      /* content: ''; Removed emoji */
       position: absolute;
       top: -8px;
       right: -8px;
@@ -184,7 +184,7 @@
       style="margin-bottom:20px; border:none; background:transparent; color:#666; cursor:pointer;">← Back to
       Dashboard</button>
 
-    <h1 style="margin-bottom: 30px;">🤕 Wound Analysis & Priority Booking</h1>
+    <h1 style="margin-bottom: 30px;">Wound Analysis & Priority Booking</h1>
 
     <!-- Step 1: Triage -->
     <div class="card" id="step1">
@@ -202,7 +202,7 @@
         <div id="preview" style="margin-top:10px; max-width:200px; margin-left:auto; margin-right:auto;"></div>
       </div>
 
-      <button class="primary" onclick="analyzeWound()" style="margin-top:20px;">🤖 Analyze & Check Severity</button>
+      <button class="primary" onclick="analyzeWound()" style="margin-top:20px;">Analyze & Check Severity</button>
     </div>
 
     <!-- Result Display -->
@@ -213,7 +213,7 @@
         <p id="recommendationText" style="margin-top:8px;"></p>
         <div id="priorityUnlockMsg" class="hidden"
           style="margin-top:12px; font-size:0.9rem; color:#b91c1c; background:#fef2f2; padding:8px; border-radius:6px;">
-          ⚡ <strong>High Severity Detected!</strong> Priority 15-minute emergency slots have been unlocked for you.
+          <strong>High Severity Detected!</strong> Priority 15-minute emergency slots have been unlocked for you.
         </div>
       </div>
     </div>
@@ -247,7 +247,7 @@
         <p style="margin-bottom:12px; color:#6b7280; font-size:0.9rem;">Or let us find the earliest spot for you:</p>
         <button onclick="autoFindSlot()"
           style="background:linear-gradient(135deg, #4f46e5, #ec4899); border:none; color:white; padding:12px 24px; border-radius:8px; font-weight:bold; cursor:pointer; width:100%; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
-          ⚡ Auto-Book Earliest Slot
+          Auto-Book Earliest Slot
         </button>
       </div>
 
@@ -269,7 +269,7 @@
         <div style="margin-bottom:5px;"><strong>Time:</strong> <span id="autoTime"></span></div>
         <div id="gapSlotBadge" class="hidden"
           style="margin-top:10px;font-size:0.8rem;background:#fee2e2;color:#b91c1c;padding:4px 8px;border-radius:4px;display:inline-block;">
-          ⚡ Emergency Gap Slot</div>
+          Emergency Gap Slot</div>
       </div>
       <div style="display:flex;gap:10px;">
         <button onclick="document.getElementById('autoBookModal').style.display='none'"
@@ -292,6 +292,18 @@
     let currentAnalysis = null;
     let selectedSlot = null;
     let autoProposal = null; // Store proposed slot
+
+    let currentUser = null;
+
+    // Fetch user details immediately
+    fetch(`${API_BASE_URL}/user/me`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    })
+      .then(res => res.json())
+      .then(user => {
+        currentUser = user;
+      })
+      .catch(console.error);
 
     // Setup File Preview
     document.getElementById('fileInput').addEventListener('change', function (e) {
@@ -317,6 +329,15 @@
       const formData = new FormData();
       if (desc) formData.append('description', desc);
       if (file) formData.append('image', file);
+
+      // Pass patient_id so history works
+      if (currentUser) {
+        formData.append('patient_id', currentUser.username);
+      } else {
+        // Fallback if user fetch failed or slow
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        formData.append('patient_id', payload.email || payload.sub);
+      }
 
       const btn = document.querySelector('button.primary');
       btn.textContent = "Analyzing...";
@@ -379,9 +400,17 @@
         content.style.color = '#92400e';
         unlock.classList.add('hidden');
 
-        // REDIRECT LOGIC FOR LOW SEVERITY
+        // REDIRECT LOGIC FOR MEDIUM SEVERITY - Store triage context first
         setTimeout(() => {
           if (confirm("Your condition appears stable (Severity 3). Redirecting you to standard booking for more options?")) {
+            // Store triage context for the normal booking page
+            const triageContext = {
+              severity: data.severity,
+              analysis: data.notes || data.analysis, // Handle both just in case
+              triage_id: data.assessment_id || data.case_id || null, // Handle both
+              timestamp: new Date().toISOString()
+            };
+            sessionStorage.setItem('triageContext', JSON.stringify(triageContext));
             window.location.href = 'create_appointment.html';
           }
         }, 1000);
@@ -392,9 +421,17 @@
         content.style.color = '#065f46';
         unlock.classList.add('hidden');
 
-        // REDIRECT LOGIC FOR LOW SEVERITY
+        // REDIRECT LOGIC FOR LOW SEVERITY - Store triage context first
         setTimeout(() => {
           if (confirm("Good news! Your condition is mild. Redirecting to standard booking.")) {
+            // Store triage context for the normal booking page
+            const triageContext = {
+              severity: data.severity,
+              analysis: data.notes || data.analysis, // Handle both just in case
+              triage_id: data.assessment_id || data.case_id || null, // Handle both
+              timestamp: new Date().toISOString()
+            };
+            sessionStorage.setItem('triageContext', JSON.stringify(triageContext));
             window.location.href = 'create_appointment.html';
           }
         }, 1000);

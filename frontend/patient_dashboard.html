@@ -675,7 +675,7 @@
         <h3>My Appointments</h3>
         <a href="create_appointment.html" class="button" role="button">Book New Appointment</a>
         <a href="triage_booking.html" class="button"
-          style="background: linear-gradient(135deg, #6366f1, #a855f7); border:none;" role="button">✨ AI Smart
+          style="background: linear-gradient(135deg, #6366f1, #a855f7); border:none;" role="button">AI Smart
           Booking</a>
         <div id="appointmentsContainer" class="loading-state">Loading appointments...</div>
       </div>
@@ -1620,8 +1620,11 @@
           throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
 
-        const assessments = await res.json();
-        console.log('Triage history:', assessments);
+        const response = await res.json();
+        console.log('Triage history:', response);
+
+        // Extract history array from response object
+        const assessments = response.history || response || [];
 
         container.innerHTML = "";
 

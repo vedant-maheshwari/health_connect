@@ -342,6 +342,7 @@ def get_chat_messages(chat_id: int, db: Session = Depends(get_db), current_user:
         ))
     return out
 
+@router.websocket("/chats/ws/{chat_id}")
 @router.websocket("/ws/{chat_id}")
 async def websocket_chat(websocket: WebSocket, chat_id: int, ws_token: str = Query(...), db: Session = Depends(get_db)):
     """
@@ -350,18 +351,31 @@ async def websocket_chat(websocket: WebSocket, chat_id: int, ws_token: str = Que
     """
     # validate ws_token
     try:
+        from chat.chat_auth import WS_SECRET_KEY
+        # DEBUG LOGGING
+        print(f"🔌 WS CONNECT: chat_id={chat_id}, token={ws_token[:10]}...")
+        # print(f"🔐 WS KEY START: {WS_SECRET_KEY[:5]}...") 
+        
         user_id = _decode_ws_token(ws_token)
-    except HTTPException:
+        print(f"👤 WS USER ID: {user_id}")
+    except HTTPException as e:
+        print(f"❌ WS TOKEN ERROR: {e.detail}")
+        await websocket.close(code=1008)
+        return
+    except Exception as e:
+        print(f"❌ WS UNEXPECTED ERROR: {str(e)}")
         await websocket.close(code=1008)
         return
 
     # check membership - Updated to handle family members
+    print(f"🔍 WS MEMBERSHIP CHECK: chat={chat_id}, user={user_id}")
     participant = db.query(models.ChatParticipant).filter(
         models.ChatParticipant.chat_id == chat_id,
         models.ChatParticipant.user_id == user_id
     ).first()
     
     if not participant:
+        print(f"⚠️ WS NOT PARTICIPANT: checking family permissions...")
         # If not a direct participant, check if family member with permissions
         user = db.query(models.User).filter(models.User.id == user_id).first()
         if user and user.role == models.UserRoles.FAMILY:

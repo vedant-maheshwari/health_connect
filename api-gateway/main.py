@@ -86,7 +86,7 @@ async def proxy_request(
     if token:
         headers["Authorization"] = f"Bearer {token}"
     
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=120.0) as client:
         # Get request body if present
         body = await request.body()
         
