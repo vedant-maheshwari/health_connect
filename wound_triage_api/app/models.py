@@ -100,3 +100,22 @@ class AdminStats(BaseModel):
     total_cases: int
     reviewed_cases: int
     total_lessons: int
+class ClinicalSupportRequest(BaseModel):
+    symptoms: str = Field(..., description="Patient symptoms and complaint")
+    history: Optional[str] = Field(None, description="Relevant patient medical history")
+    language: Optional[str] = Field("en", description="Preferred output language")
+
+class ClinicalSupportResponse(BaseModel):
+    differential_diagnosis: List[str]
+    treatment_protocols: List[str]
+    lab_recommendations: List[str]
+    disclaimer: str = "AI suggestions are for informational purposes only. Clinical judgment is required."
+
+class ConsultationAnalysisRequest(BaseModel):
+    transcript: str = Field(..., description="Full consultation transcript")
+    patient_context: Optional[str] = Field(None, description="Patient specific context if available")
+
+class ConsultationAnalysisResponse(BaseModel):
+    soap_note: Dict[str, str] = Field(..., description="Structured SOAP note (Subjective, Objective, Assessment, Plan)")
+    patient_summary: str = Field(..., description="Simple summary for the patient")
+    action_items: List[str] = Field(..., description="Next steps for the doctor")

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test AI Card</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .appointment-item { background: white; padding: 20px; margin: 20px 0; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <h1>AI Card Test</h1>
+    <p>This page tests if the AI details card renders correctly with sample data.</p>
+    
+    <div class="appointment-item">
+        <div class="appointment-info">
+            <div>Mon, Dec 23, 2025</div>
+            <div><strong>Dr. waibhav</strong></div>
+            <div style="font-size: 1.1em; font-weight: 600;">03:28 AM</div>
+            
+            <!-- AI Card -->
+            <div class="ai-health-card" style="margin-top: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 14px; border-radius: 10px; cursor: pointer; transition: all 0.3s;" onclick="toggleAIDetails(18)">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong style="color: white; font-size: 0.95em;">🤖 AI Health Check</strong>
+                        <div style="margin-top: 4px;">
+                            <span style="background: #ffc107; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600;">
+                                Severity: 3/5
+                            </span>
+                        </div>
+                    </div>
+                    <button id="expand-btn-18" style="background: rgba(255,255,255,0.25); border: none; color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85em; font-weight: 500;">
+                        View Details ▼
+                    </button>
+                </div>
+            </div>
+            
+            <div id="ai-details-18" style="display: none; background: #f8f9fa; padding: 16px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #667eea;">
+                <h4 style="margin: 0 0 12px 0; color: #333; font-size: 1em;">AI Analysis Results</h4>
+                
+                <div style="margin-bottom: 14px;">
+                    <strong style="color: #667eea; font-size: 0.9em;">📊 Severity Assessment:</strong>
+                    <p style="margin: 6px 0; padding: 8px; background: white; border-radius: 6px; font-size: 0.9em; color: #555;">Moderate - Attention needed soon</p>
+                </div>
+                
+                <div style="margin-bottom: 14px;">
+                    <strong style="color: #667eea; font-size: 0.9em;">🩺 AI Assessment:</strong>
+                    <p style="margin: 6px 0; padding: 8px; background: white; border-radius: 6px; font-size: 0.9em; color: #555; line-height: 1.5;">Test Appointment for Queue Verification</p>
+                </div>
+                
+                <div style="padding: 10px; background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-radius: 6px; border: 1px solid #667eea40;">
+                    <p style="margin: 0; font-size: 0.85em; color: #555; line-height: 1.4;">
+                        <strong>ℹ️ Note:</strong> This AI analysis is for preliminary assessment only. Please consult with your doctor for professional medical advice.
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 10px;">
+            <span style="padding: 4px 12px; border-radius: 16px; font-size: 12px; font-weight: 600; text-transform: uppercase; background: #d4edda; color: #155724;">ACCEPTED</span>
+        </div>
+    </div>
+    
+    <script>
+        function toggle AI Details(appointmentId) {
+            const detailsDiv = document.getElementById(`ai-details-${appointmentId}`);
+            const expandBtn = document.getElementById(`expand-btn-${appointmentId}`);
+            
+            if (detailsDiv && expandBtn) {
+                if (detailsDiv.style.display === 'none') {
+                    detailsDiv.style.display = 'block';
+                    expandBtn.textContent = 'Hide Details ▲';
+                    expandBtn.style.background = 'rgba(255,255,255,0.35)';
+                } else {
+                    detailsDiv.style.display = 'none';
+                    expandBtn.textContent = 'View Details ▼';
+                    expandBtn.style.background = 'rgba(255,255,255,0.25)';
+                }
+            }
+        }
+        
+        console.log("✅ Test page loaded. Click the purple AI card to expand.");
+    </script>
+</body>
+</html>

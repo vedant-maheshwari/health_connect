@@ -3,10 +3,14 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Doctor Dashboard</title>
-  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Doctor Dashboard - TeleHealth</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="assets/fullcalendar.min.css" rel="stylesheet" />
+  <script src="assets/fullcalendar.min.js" defer></script>
   <style>
     /* Global resets */
     * {
@@ -626,18 +630,101 @@
     <!-- Navigation Tabs -->
     <div class="nav-tabs">
       <button class="nav-tab active" onclick="showTab('profile')">Profile</button>
+      <button class="nav-tab" onclick="showTab('queue'); loadDoctorQueue()">Queue</button>
       <button class="nav-tab" onclick="showTab('appointments')">Appointments</button>
       <button class="nav-tab" onclick="showTab('chats')">Chats</button>
-      <button class="nav-tab" onclick="showTab('vitals')">Patient Vitals</button>
+      <button class="nav-tab" onclick="showTab('bsp')">BSP Toolkit</button>
       <button class="nav-tab" onclick="showTab('availability')">Availability</button>
+      <button class="nav-tab" onclick="showTab('patients'); loadMyPatients()">My Patients</button>
     </div>
 
-    <!-- Profile Tab -->
     <div id="profile" class="tab-content active">
       <div class="card welcome-card">
         <h2>Welcome, <span id="userName">Doctor</span></h2>
         <p>Email: <span id="userEmail">doctor@example.com</span></p>
         <button class="btn btn-danger" onclick="logout()">Logout</button>
+      </div>
+    </div>
+
+    <!-- Queue Management Tab -->
+    <div id="queue" class="tab-content">
+      <div class="card">
+        <div class="section-header">
+          <h2 style="font-size:18px; color:#333;">Patient Queue Management</h2>
+          <div class="actions">
+            <button class="btn" style="background:#00c853;" onclick="startDay()">
+              <i class="fa-solid fa-play"></i> Start My Day
+            </button>
+            <button class="btn" style="background:#4285f4; margin-left:10px;" onclick="loadDoctorQueue()">
+              <i class="fa-solid fa-rotate-right"></i> Refresh Queue
+            </button>
+            <button class="btn" onclick="callNextPatient()" style="background:#2962ff; margin-left:10px;">
+              Call Next Patient
+            </button>
+          </div>
+        </div>
+
+        <!-- Current Delay Notification -->
+        <div id="currentDelayStatus"
+          style="display:none; background:#fff3cd; color:#856404; padding:15px; border-radius:8px; margin-bottom:20px; border:1px solid #ffeeba;">
+          <i class="fa-solid fa-circle-exclamation"></i> You are running late by <strong id="delayAmount">0</strong>
+          minutes.
+        </div>
+
+        <!-- Delay Reporting -->
+        <div
+          style="background:#fff8e1; border:1px solid #ffe0b2; padding:15px; border-radius:8px; margin-bottom:20px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="display:flex; align-items:center;">
+            <strong style="margin-right:10px;">Running Late?</strong> Report delay to notify waiting patients
+          </div>
+          <div style="display:flex; gap:10px;">
+            <select id="delayMinutes" style="padding:8px; border-radius:4px; border:1px solid #ddd;">
+              <option value="10">10 mins</option>
+              <option value="15">15 mins</option>
+              <option value="30">30 mins</option>
+              <option value="45">45 mins</option>
+              <option value="60">1 hour</option>
+              <option value="0">Not delayed (Clear)</option>
+            </select>
+            <input type="text" id="delayReason" placeholder="Reason (optional)"
+              style="padding:8px; border:1px solid #ddd; border-radius:4px; width:200px;">
+            <button class="btn" style="background:#ffc107; color:#333; border:none;" onclick="reportDelay()">Update
+              Delay</button>
+          </div>
+        </div>
+
+        <div id="queueList">
+          <p style="color:#666;">Loading queue...</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- My Patients Tab -->
+    <div id="patients" class="tab-content">
+      <div class="card">
+        <div class="section-header">
+          <h3 class="section-title">My Assigned Patients</h3>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <input type="text" id="patientSearchInput" placeholder="Search by name or email..."
+              style="padding:8px; border:1px solid #ddd; border-radius:4px; min-width: 250px;">
+            <button class="btn" onclick="searchPatients()">Search Patients</button>
+            <button class="btn btn-secondary" onclick="openAddPatientModal()">+ Add New Patient</button>
+          </div>
+        </div>
+
+        <!-- Search Results -->
+        <div id="searchResults"
+          style="display:none; margin-top:15px; padding:15px; background:#f8f9fa; border-radius:8px;">
+          <h4 style="margin-bottom:10px; font-size:14px; color:#666;">Search Results:</h4>
+          <div id="searchResultsList"></div>
+        </div>
+
+        <!-- Assigned Patients List -->
+        <div style="margin-top:20px;">
+          <h4 style="margin-bottom:10px; font-size:14px; color:#666;">Assigned Patients:</h4>
+          <div id="patientsList">Loading...</div>
+        </div>
       </div>
     </div>
 
@@ -702,7 +789,9 @@
       <div id="chatMessages" class="chat-messages">
         <div class="chat-header">
           <div id="chatTitle" class="chat-title">Chat Room</div>
-          <button class="back-btn" onclick="showChatLanding()">← Back to Chats</button>
+          <div style="display:flex; gap:10px;">
+            <button class="back-btn" onclick="showChatLanding()">← Back to Chats</button>
+          </div>
         </div>
         <div id="messagesDiv" class="messages-container">
           <div class="loading-state">Loading messages...</div>
@@ -714,17 +803,98 @@
       </div>
     </div>
 
-    <!-- Patient Vitals Tab -->
-    <div id="vitals" class="tab-content">
-      <div class="card">
-        <div class="section-header">
-          <h3 class="section-title">Patient Vitals Management</h3>
+    <!-- BSP Toolkit Tab -->
+    <div id="bsp" class="tab-content">
+
+      <!-- Tool Library View (Grid of Cards) -->
+      <div id="bspLibrary">
+        <div class="card">
+          <div class="section-header">
+            <h3 class="section-title">BSP Toolkit Library</h3>
+          </div>
+          <p style="margin-bottom: 20px; color: #666;">
+            Select a specialized tool for biomedical signal analysis and processing.
+          </p>
+
+          <!-- Search and Filter Bar -->
+          <div style="display: flex; gap: 15px; margin-bottom: 25px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 250px;">
+              <input type="text" id="bspSearchInput" placeholder="Search tools (e.g., 'ECG', 'Heart Rate')..."
+                style="width: 100%; padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;"
+                onkeyup="filterBSPTools()">
+            </div>
+            <div style="width: 200px;">
+              <select id="bspCategoryFilter"
+                style="width: 100%; padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background-color: white;"
+                onchange="filterBSPTools()">
+                <option value="all">All Categories</option>
+                <option value="cardiology">Cardiology</option>
+                <option value="neurology">Neurology</option>
+                <option value="respiratory">Respiratory</option>
+                <option value="general">General Processing</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Tools Grid -->
+          <div id="bspToolsGrid"
+            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
+            <!-- Content populated by JavaScript -->
+          </div>
+
+          <div id="bspNoResults" style="display: none; text-align: center; padding: 40px; color: #666;">
+            <p>No tools found matching your search.</p>
+          </div>
         </div>
-        <p style="margin-bottom: 20px; color: #666;">
-          Record and track vital signs for your patients.
-        </p>
-        <button class="btn" onclick="openVitalsModal()">Add Patient Vitals</button>
       </div>
+
+      <!-- Active Tool View (Specific Tool Interface) -->
+      <div id="bspToolView" style="display: none;">
+        <div class="card">
+          <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 15px;">
+            <button class="btn btn-secondary" onclick="closeBSPTool()" style="padding: 6px 12px; font-size: 13px;">
+              <i class="fa-solid fa-arrow-left"></i> Back to Library
+            </button>
+            <h3 id="activeToolTitle" class="section-title" style="margin: 0;">Tool Name</h3>
+          </div>
+
+          <!-- Tool Interface Container -->
+          <div id="activeToolContent">
+            <!-- Specific tool HTML will be injected here or shown from hidden templates -->
+          </div>
+        </div>
+      </div>
+
+      <!-- TEMPLATE: Atrial Fibrillation Detector (Existing Tool) -->
+      <div id="tool-afib-detector" style="display: none;">
+        <p style="margin-bottom: 20px; color: #666;">
+          Upload PPG and ECG signals for Atrial Fibrillation classification using deep learning models.
+        </p>
+
+        <!-- File Upload Section -->
+        <div style="margin-bottom: 20px;">
+          <h4 style="margin-bottom: 10px; font-size: 16px; color: #333;">Upload Signal Record (WFDB Format)</h4>
+          <p style="font-size: 13px; color: #666; margin-bottom: 10px;">Please upload both the header (.hea) and signal
+            data (.dat) files.</p>
+          <div class="form-group">
+            <label class="form-label">Header File (.hea):</label>
+            <input type="file" id="headerFile" accept=".hea" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Signal Data File (.dat):</label>
+            <input type="file" id="datFile" accept=".dat" class="form-input" />
+          </div>
+          <button class="btn" onclick="processSignals()">Analyze Signals</button>
+        </div>
+
+        <!-- Results Section -->
+        <div id="bspResults"
+          style="display:none; margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+          <h4 style="margin-bottom: 10px; color: #333;">Analysis Results</h4>
+          <div id="classificationResult"></div>
+        </div>
+      </div>
+
     </div>
 
     <!-- Availability Tab -->
@@ -781,19 +951,168 @@
     </div>
   </div>
 
-  <div id="availability" class="tab-content">
-    <div class="card">
-      <div class="section-header">
-        <h3 class="section-title">Set Your Availability</h3>
-        <button class="btn" onclick="openAvailabilityModal()">
-          Add Availability
-        </button>
-      </div>
-      <div id="availabilityList" class="empty-state">Loading availability...</div>
+
+
+  <!-- Add Patient Modal -->
+  <div id="addPatientModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeAddPatientModal()">&times;</span>
+      <h2>Quick Add New Patient</h2>
+      <form id="addPatientForm" onsubmit="handleAddPatient(event)">
+        <div class="form-group">
+          <label>Patient Name *</label>
+          <input type="text" id="newPatientName" required placeholder="John Doe">
+        </div>
+        <div class="form-group">
+          <label>Email *</label>
+          <input type="email" id="newPatientEmail" required placeholder="patient@example.com">
+        </div>
+        <div class="form-group">
+          <label>Phone Number *</label>
+          <input type="tel" id="newPatientPhone" required placeholder="+91 1234567890">
+        </div>
+        <div class="form-group">
+          <label>Password (Optional - auto-generated if blank)</label>
+          <input type="text" id="newPatientPassword" placeholder="Leave blank for auto-password">
+          <small style="color:#666; font-size:0.85em;">If left blank, password will be: patient123</small>
+        </div>
+        <button type="submit" class="btn" style="width:100%">Create & Assign Patient</button>
+      </form>
     </div>
   </div>
 
-  <!-- Availability Modal -->
+
+
+  <!-- AI Clinical Support Modal -->
+  <div id="clinicalSupportModal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+      <span class="close" onclick="closeClinicalSupportModal()">&times;</span>
+      <h2 style="color:#673ab7; display:flex; align-items:center; gap:10px;">
+        <span>🤖</span> AI Clinical Decision Support
+      </h2>
+
+      <div style="background:#f5faff; padding:15px; border-radius:8px; margin-bottom:20px;">
+        <label style="font-weight:600; color:#444; display:block; margin-bottom:5px;">Patient Symptoms &
+          Context:</label>
+        <textarea id="clinicalSymptomsInput" rows="3"
+          style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px;"
+          placeholder="E.g. Severe headache, light sensitivity, nausea for 2 days..."></textarea>
+        <button id="btn-start-recording" onclick="startRecording()"
+          style="width:100%; margin-top:20px; background:#d32f2f; display:flex; justify-content:center; align-items:center; gap:10px; font-size:16px;">
+          <i class="fa-solid fa-microphone"></i> Start Recording
+        </button>
+      </div>
+
+      <div id="clinical-modal-results" style="display:none;">
+        <div style="margin-bottom:15px;">
+          <h4 style="color:#2c3e50; border-bottom:2px solid #e0e0e0; padding-bottom:5px;">Differential Diagnosis</h4>
+          <ul id="res-diagnosis" style="margin:5px 0 0 20px; color:#555;"></ul>
+        </div>
+
+        <div style="margin-bottom:15px;">
+          <h4 style="color:#2c3e50; border-bottom:2px solid #e0e0e0; padding-bottom:5px;">Treatment Protocols</h4>
+          <ul id="res-treatment" style="margin:5px 0 0 20px; color:#555;"></ul>
+        </div>
+
+        <div style="margin-bottom:15px;">
+          <h4 style="color:#2c3e50; border-bottom:2px solid #e0e0e0; padding-bottom:5px;">Recommended Labs</h4>
+          <div id="res-labs" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:5px;"></div>
+        </div>
+
+        <p id="res-disclaimer"
+          style="font-size:11px; color:#999; font-style:italic; text-align:center; margin-top:20px; border-top:1px solid #eee; padding-top:10px;">
+        </p>
+      </div>
+
+      <div id="clinical-modal-loading" style="display:none; text-align:center; padding:30px;">
+        <div class="spinner" style="margin:0 auto 10px;"></div>
+        <p style="color:#666;">Analyzing clinical data...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Consultation Modal -->
+  <div id="consultationModal" class="modal">
+    <div class="modal-content" style="max-height: 85vh; overflow-y: auto; display:flex; flex-direction:column;">
+      <span class="close" onclick="closeConsultationModal()">&times;</span>
+      <h2 style="color:#d32f2f; display:flex; align-items:center; gap:10px;">
+        <i class="fa-solid fa-microphone"></i> Live Consultation
+      </h2>
+
+      <div id="consultation-active">
+        <div
+          style="text-align:center; margin-bottom:15px; background:#ffebee; padding:10px; border-radius:8px; border:1px solid #ffcdd2;">
+          <h4 style="color:#c62828; margin-bottom:5px;">Recording in Progress...</h4>
+          <p style="font-size:12px; color:#666;">System is listening and transcribing</p>
+          <div class="spinner" style="border-top-color:#d32f2f; width:20px; height:20px; margin:5px auto;"></div>
+        </div>
+
+        <div style="margin-bottom:10px; display:flex; align-items:center; gap:10px;">
+          <label style="font-size:13px; color:#555;">Detection Language:</label>
+          <select id="consultationLanguage" style="padding:5px; border-radius:4px; border:1px solid #ddd;"
+            onchange="if(isRecording){ isRecording=false; if(recognition) recognition.abort(); setTimeout(() => startConsultation(), 500); }">
+            <option value="en-US">English (US)</option>
+            <option value="en-IN">Hinglish (India Mixed)</option>
+            <option value="hi-IN">Hindi (India) - हिंदी</option>
+          </select>
+        </div>
+
+        <label style="font-weight:600; color:#444;">Live Transcript (Editable):</label>
+        <textarea id="liveTranscript" rows="10"
+          style="width:100%; padding:15px; border:1px solid #ddd; border-radius:6px; font-size:14px; line-height:1.5; margin-top:5px;"
+          placeholder="Conversation will appear here..."></textarea>
+
+        <div style="display:flex; gap:10px; margin-top:20px; justify-content:flex-end;">
+          <button class="btn btn-secondary" onclick="closeConsultationModal()">Cancel</button>
+          <button class="btn" onclick="endConsultation()" style="background:#d32f2f; color:white;">End &
+            Analyze</button>
+        </div>
+      </div>
+
+      <div id="consultation-results" style="display:none;">
+        <h3
+          style="color:#2e7d32; margin-bottom:15px; border-bottom:2px solid #a5d6a7; padding-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+          <span>Consultation Analysis</span>
+          <button id="btn-enable-edit" onclick="enableEditing()"
+            style="font-size:12px; padding:5px 10px; background:#fff; border:1px solid #2e7d32; color:#2e7d32; border-radius:4px; cursor:pointer;">✏️
+            Edit Notes</button>
+        </h3>
+
+        <div class="tabs" style="display:flex; gap:10px; margin-bottom:15px;">
+          <button class="btn" onclick="showResultTab('soap')" id="btn-tab-soap"
+            style="background:#e8f5e9; color:#2e7d32;">SOAP Note</button>
+          <button class="btn" onclick="showResultTab('patient')" id="btn-tab-patient"
+            style="background:white; color:#666; border:1px solid #ddd;">Patient Summary</button>
+        </div>
+
+        <div id="res-soap" style="background:#f9f9f9; padding:15px; border-radius:8px; border:1px solid #eee;">
+          <div id="soap-content"></div>
+        </div>
+
+        <div id="res-patient"
+          style="display:none; background:#e3f2fd; padding:15px; border-radius:8px; border:1px solid #bbdefb;">
+          <h4 style="color:#1565c0; margin-bottom:10px;">Summary for Patient:</h4>
+          <p id="patient-summary-content" style="color:#333; line-height:1.6;"></p>
+          <hr style="margin:15px 0;">
+          <h4 style="color:#1565c0; margin-bottom:10px;">Action Items:</h4>
+          <ul id="action-items-content" style="padding-left:20px; color:#444;"></ul>
+        </div>
+
+        <div style="margin-top:20px; text-align:right;">
+          <button id="btn-save-notes" class="btn" onclick="saveConsultationNotes()"
+            style="background:#2e7d32; color:white;">Save to
+            Record</button>
+        </div>
+      </div>
+
+      <div id="consultation-loading" style="display:none; text-align:center; padding:40px;">
+        <div class="spinner" style="margin:0 auto 15px; width:40px; height:40px; border-width:4px;"></div>
+        <h3>Generating Clinical Notes...</h3>
+        <p style="color:#666;">AI is processing the transcript into structured SOAP notes.</p>
+      </div>
+
+    </div>
+  </div>
   <div id="availabilityModal" class="modal">
     <div class="modal-content">
       <span class="close" onclick="closeAvailabilityModal()">&times;</span>
@@ -847,12 +1166,141 @@
   </div>
 
   <script src="config.js"></script>
+  <!-- <script src="bsp_functions.js"></script> -->
   <script>
+
+
     const API_BASE_URL = API_CONFIG.getApiBaseUrl();
 
     const token =
       sessionStorage.getItem("token") || localStorage.getItem("authToken");
     const role = sessionStorage.getItem("role") || localStorage.getItem("userRole");
+
+    // --------------------------------------------------------------------------
+    // BSP TOOLKIT LIBRARY (Merged)
+    // --------------------------------------------------------------------------
+    const bspTools = [
+      {
+        id: 'afib-detector',
+        title: 'Atrial Fibrillation Detector',
+        description: 'Deep learning model to detect Atrial Fibrillation from PPG and ECG signals.',
+        category: 'cardiology',
+        icon: 'fa-heart-pulse',
+        color: '#d32f2f',
+        tags: ['ECG', 'PPG', 'Deep Learning'],
+        templateId: 'tool-afib-detector'
+      }
+    ];
+
+    function renderBSPToolkit() {
+      console.log("Rendering BSP Toolkit...", bspTools);
+      const grid = document.getElementById('bspToolsGrid');
+      if (!grid) return;
+
+      const searchInput = document.getElementById('bspSearchInput');
+      const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+      const filterInput = document.getElementById('bspCategoryFilter');
+      const filterCategory = filterInput ? filterInput.value : 'all';
+
+      grid.innerHTML = '';
+      let matchCount = 0;
+
+      bspTools.forEach(tool => {
+        const matchesSearch = tool.title.toLowerCase().includes(searchTerm) ||
+          tool.description.toLowerCase().includes(searchTerm) ||
+          tool.tags.some(tag => tag.toLowerCase().includes(searchTerm));
+        const matchesCategory = filterCategory === 'all' || tool.category === filterCategory;
+
+        if (matchesSearch && matchesCategory) {
+          matchCount++;
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.style.cursor = 'pointer';
+          card.style.transition = 'transform 0.2s';
+          card.onmouseover = () => card.style.transform = 'translateY(-5px)';
+          card.onmouseout = () => card.style.transform = 'translateY(0)';
+          card.onclick = () => openBSPTool(tool.id);
+
+          card.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:15px;">
+                    <div style="background:${tool.color}15; color:${tool.color}; width:50px; height:50px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:24px;">
+                        <i class="fa-solid ${tool.icon}"></i>
+                    </div>
+                    <span style="background:#f0f0f0; color:#666; padding:4px 8px; border-radius:4px; font-size:11px; text-transform:uppercase; font-weight:600;">
+                        ${tool.category}
+                    </span>
+                </div>
+                <h4 style="margin-bottom:8px; color:#333;">${tool.title}</h4>
+                <p style="color:#666; font-size:13px; line-height:1.5; margin-bottom:15px;">${tool.description}</p>
+                <div style="display:flex; flex-wrap:wrap; gap:5px;">
+                    ${tool.tags.map(tag => `<span style="font-size:11px; color:#555; background:#f8f9fa; padding:2px 6px; border:1px solid #eee; border-radius:4px;">#${tag}</span>`).join('')}
+                </div>
+            `;
+          grid.appendChild(card);
+        }
+      });
+      const noResults = document.getElementById('bspNoResults');
+      if (noResults) noResults.style.display = matchCount === 0 ? 'block' : 'none';
+    }
+
+    function filterBSPTools() { renderBSPToolkit(); }
+
+    function openBSPTool(toolId) {
+      const tool = bspTools.find(t => t.id === toolId);
+      if (!tool) return;
+      document.getElementById('bspLibrary').style.display = 'none';
+      document.getElementById('bspToolView').style.display = 'block';
+      document.getElementById('activeToolTitle').innerHTML = `<i class="fa-solid ${tool.icon}" style="color:${tool.color}; margin-right:10px;"></i> ${tool.title}`;
+      const template = document.getElementById(tool.templateId);
+      const container = document.getElementById('activeToolContent');
+      if (template) container.innerHTML = template.innerHTML;
+    }
+
+    function closeBSPTool() {
+      document.getElementById('bspLibrary').style.display = 'block';
+      document.getElementById('bspToolView').style.display = 'none';
+      document.getElementById('activeToolContent').innerHTML = '';
+    }
+
+    async function processSignals() {
+      const container = document.getElementById('activeToolContent');
+      const headerFile = container.querySelector('#headerFile').files[0];
+      const datFile = container.querySelector('#datFile').files[0];
+      if (!headerFile || !datFile) { alert('Please upload both files.'); return; }
+
+      const resultsDiv = container.querySelector('#bspResults');
+      const resultContent = container.querySelector('#classificationResult');
+      resultsDiv.style.display = 'block';
+      resultContent.innerHTML = '<p style="text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> Analyzing...</p>';
+
+      try {
+        const formData = new FormData();
+        formData.append('header_file', headerFile);
+        formData.append('dat_file', datFile);
+
+        const response = await fetch(`${API_BASE_URL}/bsp/analyze`, {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token },
+          body: formData
+        });
+        if (!response.ok) throw new Error('Analysis failed');
+        const result = await response.json();
+
+        const isAF = result.classification.includes('Atrial Fibrillation');
+        const confidencePercent = (parseFloat(result.confidence) * 100).toFixed(1);
+        resultContent.innerHTML = `
+        <div style="text-align:center; padding:20px;">
+          <h3 style="color: ${isAF ? '#dc3545' : '#28a745'};">${result.classification}</h3>
+          <p>Confidence: <strong>${confidencePercent}%</strong></p>
+          <div style="background:white; padding:10px; margin-top:10px; border:1px solid #eee;">
+            <p>Segments Processed: ${result.segments_processed}</p>
+            <p>AF Probability: ${(result.af_probability * 100).toFixed(1)}%</p>
+          </div>
+        </div>`;
+      } catch (error) {
+        resultContent.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
+      }
+    }
 
     // Chat variables
     let currentChatId = null;
@@ -879,13 +1327,40 @@
 
       document.getElementById(tabName).classList.add("active");
 
-      event.target.classList.add("active");
+      // Update UI state for tab
+      event.target.classList.add("active"); // Note: event might be undefined if called manually
+    }
+
+    // Initialize tabs on load
+    document.addEventListener('DOMContentLoaded', () => {
+      // Check which tab is active and render accordingly
+      if (document.getElementById('bsp').classList.contains('active')) {
+        setTimeout(renderBSPToolkit, 500); // Small delay to ensure DOM is ready
+      }
+    });
+
+    function showTab(tabName) {
+      const tabContents = document.querySelectorAll(".tab-content");
+      tabContents.forEach((content) => content.classList.remove("active"));
+
+      const tabs = document.querySelectorAll(".nav-tab");
+      tabs.forEach((tab) => tab.classList.remove("active"));
+
+      document.getElementById(tabName).classList.add("active");
+
+      // Highlight the clicked button
+      // Find the button that calls showTab(tabName)
+      const clickedBtn = Array.from(tabs).find(btn => btn.getAttribute('onclick').includes(tabName));
+      if (clickedBtn) clickedBtn.classList.add("active");
 
       if (tabName === "chats") {
         loadChats();
         showChatLanding();
       } else if (tabName === "availability") {
         loadAvailability();
+      } else if (tabName === "bsp") {
+        console.log("BSP Tab Selected - Rendering Toolkit");
+        renderBSPToolkit();
       }
 
       if (tabName !== "chats" && wsClient) {
@@ -1308,9 +1783,9 @@
           return `
         <div class="availability-card">
           <div class="availability-day">${daysOfWeek[a.day_of_week]}</div>
-          <div class="availability-time">🕐 ${a.start_time} - ${a.end_time}</div>
-          <div class="availability-duration">⏱️ ${a.appointment_duration} minutes per appointment</div>
-          ${a.break_start ? `<div class="availability-break">☕ Break: ${a.break_start} - ${a.break_end}</div>` : ''}
+          <div class="availability-time">${a.start_time} - ${a.end_time}</div>
+          <div class="availability-duration">Duration: ${a.appointment_duration} mins</div>
+          ${a.break_start ? `<div class="availability-break">Break: ${a.break_start} - ${a.break_end}</div>` : ''}
           <div class="availability-actions">
             <button class="btn btn-danger btn-sm" onclick="deleteAvail(${a.id})">Delete</button>
           </div>
@@ -1454,7 +1929,779 @@
     document.addEventListener("DOMContentLoaded", function () {
       loadUser();
     });
+
+    // My Patients Logic
+    async function loadMyPatients() {
+      const container = document.getElementById("patientsList");
+      container.innerHTML = "Loading...";
+      try {
+        const res = await fetch(`${API_BASE_URL}/doctors/me/patients`, {
+          headers: { Authorization: "Bearer " + token },
+        });
+        if (!res.ok) throw new Error("Failed to load patients");
+        const patients = await res.json();
+
+        if (patients.length === 0) {
+          container.innerHTML = "<p style='color:#888; font-style:italic;'>No patients assigned yet. Patients who book appointments with you will automatically appear here, or you can search and assign manually above.</p>";
+          return;
+        }
+
+        const html = patients.map(p => `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; border-bottom:1px solid #eee;">
+            <div>
+              <strong>${p.name}</strong> (${p.email})<br>
+              <span style="font-size:0.9em; color:#666;">ID: ${p.id}</span>
+            </div>
+            <button class="btn" onclick="window.location.href='patient_record.html?patient_id=${p.id}&name=${encodeURIComponent(p.name)}'">Open Record</button>
+          </div>
+        `).join('');
+        container.innerHTML = html;
+      } catch (err) {
+        console.error(err);
+        container.innerHTML = "<p>Error loading patients.</p>";
+      }
+    }
+
+    async function searchPatients() {
+      const query = document.getElementById("patientSearchInput").value.trim();
+      if (!query || query.length < 2) {
+        alert("Please enter at least 2 characters to search");
+        return;
+      }
+
+      const container = document.getElementById("searchResultsList");
+      const resultsDiv = document.getElementById("searchResults");
+      container.innerHTML = "Searching...";
+      resultsDiv.style.display = "block";
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/doctors/patients/search?q=${encodeURIComponent(query)}`, {
+          headers: { Authorization: "Bearer " + token }
+        });
+        if (!res.ok) throw new Error("Search failed");
+        const patients = await res.json();
+
+        if (patients.length === 0) {
+          container.innerHTML = "<p style='color:#888; font-style:italic;'>No patients found matching your search.</p>";
+          return;
+        }
+
+        const html = patients.map(p => `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; background:white; margin-bottom:8px; border-radius:6px; border:1px solid #e0e0e0;">
+            <div>
+              <strong>${p.name}</strong><br>
+              <span style="font-size:0.85em; color:#666;">${p.email}</span>
+            </div>
+            <button class="btn btn-sm" onclick="assignPatientById(${p.id}, '${p.name.replace(/'/g, "\\'")}')">Assign</button>
+          </div>
+        `).join('');
+        container.innerHTML = html;
+      } catch (err) {
+        console.error(err);
+        container.innerHTML = "<p style='color:#dc3545;'>Error searching patients.</p>";
+      }
+    }
+
+    async function assignPatientById(id, name) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/doctors/me/patients/${id}`, {
+          method: "POST",
+          headers: { Authorization: "Bearer " + token }
+        });
+        const data = await res.json();
+        alert(`${name} has been assigned to you!`);
+        document.getElementById("searchResults").style.display = "none";
+        document.getElementById("patientSearchInput").value = "";
+        loadMyPatients(); // Reload the list
+      } catch (e) {
+        alert("Failed to assign patient");
+      }
+    }
+
+    // Add Patient Modal Functions
+    function openAddPatientModal() {
+      document.getElementById("addPatientModal").style.display = "block";
+    }
+
+    function closeAddPatientModal() {
+      document.getElementById("addPatientModal").style.display = "none";
+      document.getElementById("addPatientForm").reset();
+    }
+
+    async function handleAddPatient(e) {
+      e.preventDefault();
+
+      const name = document.getElementById("newPatientName").value.trim();
+      const email = document.getElementById("newPatientEmail").value.trim();
+      const phone = document.getElementById("newPatientPhone").value.trim();
+      const password = document.getElementById("newPatientPassword").value.trim() || "patient123";
+
+      try {
+        // Register the patient
+        const registerRes = await fetch(`${API_BASE_URL}/register_patient`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: name,
+            email: email,
+            phone: phone,
+            password: password
+          })
+        });
+
+        if (!registerRes.ok) {
+          const error = await registerRes.json();
+          throw new Error(error.detail || "Registration failed");
+        }
+
+        const patientData = await registerRes.json();
+
+        // Auto-assign to current doctor
+        const assignRes = await fetch(`${API_BASE_URL}/doctors/me/patients/${patientData.id}`, {
+          method: "POST",
+          headers: { Authorization: "Bearer " + token }
+        });
+
+        if (assignRes.ok) {
+          alert(`Patient ${name} created and assigned successfully!\nEmail: ${email}\nPassword: ${password}`);
+          closeAddPatientModal();
+          loadMyPatients(); // Reload the list
+        } else {
+          alert(`Patient created but assignment failed. Try searching for: ${email}`);
+          closeAddPatientModal();
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Failed to create patient: " + err.message);
+      }
+    }
+
+    // ============================================================
+    // QUEUE MANAGEMENT FUNCTIONS
+    // ============================================================
+
+    async function startDay() {
+      try {
+        const doctorId = sessionStorage.getItem('user_id');
+        const res = await fetch(`${API_BASE_URL}/queue/start-day/${doctorId}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!res.ok) throw new Error('Failed to start day');
+
+        const data = await res.json();
+        alert(`Day Started.\n\n${data.total_patients} appointments for today\n${data.queued} newly queued`);
+
+        // Refresh queue display
+        loadDoctorQueue();
+      } catch (error) {
+        alert('Error starting day: ' + error.message);
+      }
+    }
+
+    async function loadDoctorQueue() {
+      const queueList = document.getElementById('queueList');
+      queueList.innerHTML = '<p style="color:#666;">Loading queue...</p>';
+
+      try {
+        const doctorId = sessionStorage.getItem('user_id');
+        const res = await fetch(`${API_BASE_URL}/queue/doctor/${doctorId}`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+
+        if (!res.ok) {
+          if (res.status === 403) {
+            queueList.innerHTML = '<div class="empty-state"><p>Queue data is only visible when logged in as a doctor.</p></div>';
+            return;
+          }
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+
+        // Show current delay status
+        const delayStatus = document.getElementById('currentDelayStatus');
+        if (data.current_delay_minutes > 0) {
+          delayStatus.style.display = 'block';
+          document.getElementById('delayAmount').textContent = data.current_delay_minutes;
+        } else {
+          delayStatus.style.display = 'none';
+        }
+
+        // Show queue
+        if (!data.queue || data.queue.length === 0) {
+          queueList.innerHTML = `
+            <div class="empty-state" style="text-align:center; padding:40px;">
+              <h4>No Patients in Queue</h4>
+              <p>Patients will appear here after they check in for their appointment.</p>
+            </div>
+          `;
+          return;
+        }
+
+        let html = `<p style="margin-bottom:15px;"><strong>${data.total_waiting}</strong> patient(s) waiting</p>`;
+
+        data.queue.forEach((patient, index) => {
+          let statusBadge = '';
+          let bgColor = '#f8f9fa';
+
+          if (patient.status === 'in_progress') {
+            statusBadge = `
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:5px;">
+                <span style="background:#28a745; color:white; padding:4px 8px; border-radius:12px; font-size:12px;">IN PROGRESS</span>
+                <button onclick="startConsultation('${patient.patient_name.replace(/'/g, "\\'")}', ${patient.patient_id})" style="font-size:11px; padding:3px 8px; background:#fff; border:1px solid #28a745; color:#28a745; border-radius:4px; cursor:pointer;">Resume</button>
+              </div>
+            `;
+            bgColor = '#d4edda';
+          } else if (patient.status === 'delayed') {
+            statusBadge = '<span style="background:#ffc107; color:#333; padding:4px 8px; border-radius:12px; font-size:12px;">DELAYED</span>';
+            bgColor = '#fff3cd';
+          } else {
+            statusBadge = '<span style="background:#6c757d; color:white; padding:4px 8px; border-radius:12px; font-size:12px;">WAITING</span>';
+          }
+
+          html += `
+            <div id="queue-item-${patient.patient_id}" style="background:${bgColor}; padding:15px; border-radius:8px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; transition: all 0.5s ease;">
+              <div style="display:flex; align-items:center; gap:15px;">
+                <div style="background:#4285f4; color:white; width:35px; height:35px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold;">
+                  ${patient.position}
+                </div>
+                <div>
+                  <strong>${patient.patient_name}</strong>
+                  <div style="font-size:12px; color:#666;">Waiting ${patient.waiting_minutes} min</div>
+                </div>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                ${statusBadge}
+                <button onclick="dequeuePatient(${patient.queue_id}, '${patient.patient_name.replace(/'/g, "\\'")}')" 
+                  style="background:#dc3545; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; transition:all 0.2s;"
+                  onmouseover="this.style.background='#c82333'" 
+                  onmouseout="this.style.background='#dc3545'"
+                  title="Remove from queue">
+            <i class="fa-solid fa-xmark"></i> Remove
+                </button >
+              </div >
+            </div >
+            `;
+        });
+
+        queueList.innerHTML = html;
+      } catch (error) {
+        console.error('Error loading queue:', error);
+        queueList.innerHTML = `< div class= "error-state" > <p>Error loading queue: ${error.message}</p></div > `;
+      }
+    }
+
+    async function reportDelay() {
+      const delayMinutes = parseInt(document.getElementById('delayMinutes').value);
+      const reason = document.getElementById('delayReason').value;
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/queue/update-delay?delay_minutes=${delayMinutes}&reason=${encodeURIComponent(reason)}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+        alert(data.message);
+        loadDoctorQueue(); // Refresh queue
+      } catch (error) {
+        console.error('Error reporting delay:', error);
+        alert('Failed to update delay: ' + error.message);
+      }
+    }
+
+    async function callNextPatient() {
+      if (!confirm("Start next consultation? This will dequeue the next patient and open the consultation window.")) return;
+
+      try {
+        const doctorId = sessionStorage.getItem('user_id');
+        const res = await fetch(`${API_BASE_URL}/queue/call-next/${doctorId}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+
+        if (data.next_patient) {
+          // Auto-start consultation immediately (User already confirmed)
+          startConsultation(data.next_patient.patient_name, data.next_patient.patient_id);
+        } else {
+          alert('No more patients in queue');
+        }
+
+        loadDoctorQueue(); // Refresh queue
+      } catch (error) {
+        console.error('Error calling next patient:', error);
+        alert('Failed to call next patient: ' + error.message);
+      }
+    }
+
+    async function dequeuePatient(queueId, patientName) {
+      if (!confirm(`Remove ${patientName} from the queue ?\n\nThis will cancel their check -in and they will need to check in again.`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/queue/remove/${queueId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+        alert(data.message);
+
+        // Refresh the queue
+        loadDoctorQueue();
+      } catch (error) {
+        console.error('Error removing patient from queue:', error);
+        alert('Failed to remove patient: ' + error.message);
+      }
+    }
+
+
+    // AI Clinical Support Functions
+    function openClinicalSupportModal() {
+      document.getElementById("clinicalSupportModal").style.display = "block";
+    }
+
+    function closeClinicalSupportModal() {
+      document.getElementById("clinicalSupportModal").style.display = "none";
+    }
+
+    async function runClinicalSupport() {
+      const symptoms = document.getElementById("clinicalSymptomsInput").value.trim();
+      const btn = document.getElementById("btn-run-clinical");
+      const loading = document.getElementById("clinical-modal-loading");
+      const results = document.getElementById("clinical-modal-results");
+
+      if (!symptoms) {
+        alert("Please enter patient symptoms.");
+        return;
+      }
+
+      btn.disabled = true;
+      loading.style.display = "block";
+      results.style.display = "none";
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/triage/clinical-support`, {
+          method: "POST",
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            symptoms: symptoms,
+            history: "Active Consultation Context",
+            language: "en"
+          })
+        });
+
+        if (!res.ok) throw new Error("AI Service Unavailable (Check if Triage Service is running)");
+
+        const data = await res.json();
+
+        // Render Diagnosis
+        document.getElementById("res-diagnosis").innerHTML = data.differential_diagnosis.map(d => `< li > ${d}</li > `).join("");
+
+        // Render Treatment
+        document.getElementById("res-treatment").innerHTML = data.treatment_protocols.map(t => `< li > ${t}</li > `).join("");
+
+        // Render Labs
+        document.getElementById("res-labs").innerHTML = data.lab_recommendations.map(l =>
+          `< span style = "background:#e0f7fa; color:#006064; padding:4px 10px; border-radius:12px; font-size:12px; border:1px solid #b2ebf2;" > ${l}</span > `
+        ).join("");
+
+        document.getElementById("res-disclaimer").textContent = data.disclaimer;
+        results.style.display = "block";
+
+      } catch (e) {
+        alert("Error: " + e.message);
+      } finally {
+        loading.style.display = "none";
+        btn.disabled = false;
+      }
+    }
+
+    // ============================================================
+    // LIVE CONSULTATION LOGIC
+    // ============================================================
+
+    let mediaRecorder;
+    let audioChunks = [];
+    let isRecording = false;
+    let currentConsultationPatientId = null;
+    let latestConsultationAnalysis = null;
+    let latestAudioBlob = null;
+    let latestSarvamDebug = null;
+
+    async function startConsultation(patientName = "", patientId = null) {
+      if (patientId) currentConsultationPatientId = patientId;
+
+      const modal = document.getElementById("consultationModal");
+      modal.style.display = "block";
+      document.getElementById("consultation-active").style.display = "block";
+      document.getElementById("consultation-results").style.display = "none";
+      document.getElementById("consultation-loading").style.display = "none";
+      document.getElementById("liveTranscript").value = ""; // Clear previous
+
+      console.log("🚀 Doctor Dashboard Loaded - Version 2.5 (Editable Notes & Auto-Complete)");
+
+      if (patientName) {
+        document.getElementById("liveTranscript").placeholder = `Consultation with ${patientName}... (Recording Active)`;
+      }
+
+      // Initialize MediaRecorder
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+          let options = {};
+          if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+            options = { mimeType: 'audio/webm;codecs=opus' };
+          } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+            options = { mimeType: 'audio/webm' };
+          } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+            options = { mimeType: 'audio/mp4' }; // Safari fallback
+          }
+
+          console.log("Using MediaRecorder options:", options);
+          mediaRecorder = new MediaRecorder(stream, options);
+          audioChunks = [];
+          isRecording = true;
+
+          mediaRecorder.ondataavailable = event => {
+            if (event.data.size > 0) audioChunks.push(event.data);
+          };
+
+          mediaRecorder.start();
+
+          // Visual feedback
+          const transcriptArea = document.getElementById("liveTranscript");
+          transcriptArea.placeholder = `🔴 Recording(${mediaRecorder.mimeType})...Speak in Hindi or English.`;
+
+        } catch (err) {
+          console.error("Microphone access error:", err);
+          alert("Could not access microphone. Please ensure permission is granted.");
+        }
+      } else {
+        alert("Audio recording is not supported in this browser.");
+      }
+    }
+
+    function closeConsultationModal() {
+      if (mediaRecorder && isRecording) {
+        isRecording = false;
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      }
+      document.getElementById("consultationModal").style.display = "none";
+    }
+
+    async function endConsultation() {
+      if (!isRecording) {
+        // If not recording, maybe text was typed manually?
+        proceedToAnalysis();
+        return;
+      }
+
+      isRecording = false;
+      document.getElementById("consultation-active").style.display = "none";
+      document.getElementById("consultation-loading").style.display = "block";
+      document.getElementById("consultation-loading").innerHTML = "<h3>🎙️ Transcribing Audio...</h3><p>Processing with Sarvam AI (Hinglish)</p>";
+
+      mediaRecorder.stop();
+
+      mediaRecorder.onstop = async () => {
+        // Use the actual MIME type from the recorder
+        const mimeType = mediaRecorder.mimeType || 'audio/webm';
+        console.log("Creating blob with MIME:", mimeType);
+
+        const audioBlob = new Blob(audioChunks, { type: mimeType });
+        const audioSizeKB = Math.round(audioBlob.size / 1024);
+        console.log(`🎙️ Recording stopped.Size: ${audioSizeKB} KB`);
+
+        document.getElementById("consultation-loading").innerHTML = `< h3 >🎙️ Uploading Audio...</h3 > <p>Sending ${audioSizeKB} KB to Sarvam AI (Hinglish)...</p>`;
+
+        // Determine extension
+        let ext = "wav";
+        if (mimeType.includes("webm")) ext = "webm";
+        else if (mimeType.includes("mp4")) ext = "mp4";
+        else if (mimeType.includes("ogg")) ext = "ogg";
+
+        const filename = `consultation.${ext} `;
+        const formData = new FormData();
+        formData.append("file", audioBlob, filename);
+
+        try {
+          // 1. Transcribe
+          const transRes = await fetch(`${API_BASE_URL}/triage/transcribe`, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token },
+            body: formData
+          });
+          if (!transRes.ok) throw new Error("Transcription failed");
+          const transData = await transRes.json();
+          console.log("✅ Sarvam Response:", transData);
+
+          const transcript = transData.transcript || "";
+          console.log("📝 Transcript:", transcript);
+
+          document.getElementById("liveTranscript").value = transcript;
+
+          // Store debug data
+          latestAudioBlob = audioBlob;
+          latestSarvamDebug = transData;
+
+          await proceedToAnalysis(transcript);
+
+        } catch (e) {
+          console.error("Processing error:", e);
+          alert("Error during processing: " + e.message);
+          document.getElementById("consultation-loading").style.display = "none";
+          document.getElementById("consultation-active").style.display = "block";
+        }
+      };
+    }
+
+    async function proceedToAnalysis(transcriptInput = null) {
+      const transcript = transcriptInput || document.getElementById("liveTranscript").value.trim();
+
+      if (!transcript) {
+        alert("Transcript is empty. No analysis possible.");
+        document.getElementById("consultation-loading").style.display = "none";
+        document.getElementById("consultation-active").style.display = "block";
+        return;
+      }
+
+      // UI Updates (if called directly)
+      document.getElementById("consultation-active").style.display = "none";
+      document.getElementById("consultation-loading").style.display = "block";
+
+      // UI Updates
+      document.getElementById("consultation-active").style.display = "none";
+      document.getElementById("consultation-loading").style.display = "block";
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/triage/consultation/analyze`, {
+          method: "POST",
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            transcript: transcript,
+            patient_context: "Active Chat Consultation"
+          })
+        });
+
+        if (!res.ok) throw new Error("Analysis failed");
+        const data = await res.json();
+        latestConsultationAnalysis = data; // Store for saving
+
+        // Render SOAP Note
+        // Render SOAP Note (Read-Only Initial State)
+        const soapHtml = Object.entries(data.soap_note).map(([k, v]) => `
+          <div style="margin-bottom:15px;">
+            <strong style="color:#d32f2f; text-transform:uppercase; display:block; margin-bottom:5px; font-size:12px;">${k}:</strong>
+            <textarea id="soap-${k}" class="soap-edit-field" rows="3" readonly 
+              style="width:100%; padding:10px; border:none; background:transparent; border-radius:6px; font-family:inherit; resize:none;">${v}</textarea>
+          </div>
+          `).join("");
+        document.getElementById("soap-content").innerHTML = soapHtml;
+
+        // Render Patient Summary (Read-Only Initial State)
+        document.getElementById("patient-summary-content").innerHTML = `
+          <textarea id="summary-edit-field" rows="6" readonly
+        style="width:100%; padding:10px; border:none; background:transparent; border-radius:6px; font-family:inherit; resize:none;">${data.patient_summary}</textarea>
+          `;
+
+        // Render Action Items
+        document.getElementById("action-items-content").innerHTML = data.action_items.map(i => `<li>${i}</li>`).join("");
+
+        // RENDER DEBUG SECTION (Requested feature)
+        if (latestAudioBlob && latestSarvamDebug) {
+          const debugContainer = document.createElement('div');
+          debugContainer.style.cssText = "margin-top:20px; padding:15px; background:#fff3e0; border:1px solid #ffe0b2; border-radius:6px;";
+          debugContainer.innerHTML = `
+          <h4 style="margin:0 0 5px 0; color:#ef6c00;"><i class="fa-solid fa-bug"></i> Debug: Recording & Response</h4>
+                  <audio controls src="${URL.createObjectURL(latestAudioBlob)}" type="${latestAudioBlob.type}" style="width:100%; margin-bottom:10px;"></audio>
+                  <details>
+                    <summary style="cursor:pointer; color:#f57c00; font-weight:600;">View Raw Sarvam API Response</summary>
+                    <pre style="background:#fff; padding:10px; border:1px solid #eee; font-size:11px; max-height:200px; overflow:auto; margin-top:5px;">${JSON.stringify(latestSarvamDebug, null, 2)}</pre>
+                  </details>
+        `;
+
+          // Append to results
+          document.getElementById("consultation-results").appendChild(debugContainer);
+        }
+
+        // Show Results
+        document.getElementById("consultation-loading").style.display = "none";
+        document.getElementById("consultation-results").style.display = "block";
+
+        // Default Tab
+        showResultTab('soap');
+
+      } catch (e) {
+        alert("Error analyzing consultation: " + e.message);
+        document.getElementById("consultation-loading").style.display = "none";
+        document.getElementById("consultation-active").style.display = "block"; // Go back
+      }
+    }
+
+    function enableEditing() {
+      const inputs = document.querySelectorAll('.soap-edit-field, #summary-edit-field');
+      inputs.forEach(input => {
+        input.removeAttribute('readonly');
+        input.style.border = "1px solid #ddd";
+        input.style.background = "#fff";
+        input.style.resize = "vertical";
+      });
+
+      const btn = document.getElementById("btn-enable-edit");
+      if (btn) {
+        btn.innerHTML = "📝 Editing Enabled";
+        btn.style.background = "#e8f5e9";
+        btn.disabled = true;
+      }
+    }
+
+    function showResultTab(tab) {
+      document.getElementById("res-soap").style.display = tab === 'soap' ? 'block' : 'none';
+      document.getElementById("res-patient").style.display = tab === 'patient' ? 'block' : 'none';
+
+      const btnSoap = document.getElementById("btn-tab-soap");
+      const btnPatient = document.getElementById("btn-tab-patient");
+
+      if (tab === 'soap') {
+        btnSoap.style.background = "#e8f5e9";
+        btnSoap.style.color = "#2e7d32";
+        btnSoap.style.border = "none";
+        btnPatient.style.background = "white";
+        btnPatient.style.color = "#666";
+        btnPatient.style.border = "1px solid #ddd";
+      } else {
+        btnPatient.style.background = "#e3f2fd";
+        btnPatient.style.color = "#1565c0";
+        btnPatient.style.border = "none";
+        btnSoap.style.background = "white";
+        btnSoap.style.color = "#666";
+        btnSoap.style.border = "1px solid #ddd";
+      }
+    }
+
+    async function saveConsultationNotes() {
+      if (!currentConsultationPatientId) {
+        alert("No patient associated with this consultation. Cannot save.");
+        return;
+      }
+      if (!latestConsultationAnalysis || !latestConsultationAnalysis.soap_note) {
+        alert("No analysis data to save.");
+        return;
+      }
+
+      const soap = latestConsultationAnalysis.soap_note;
+
+      // Helper to get value from textarea or original object (case insensitive fallback)
+      const getValue = (key) => {
+        const el = document.getElementById(`soap-${key}`) ||
+          document.getElementById(`soap-${key.charAt(0).toUpperCase() + key.slice(1)}`) ||
+          document.getElementById(`soap-${key.toLowerCase()}`);
+        return el ? el.value : (soap[key] || "");
+      };
+
+      // Construct payload from EDITED values
+      const payload = {
+        chief_complaint: "Live Consultation",
+        subjective: getValue("Subjective") || getValue("subjective"),
+        objective: getValue("Objective") || getValue("objective"),
+        assessment: getValue("Assessment") || getValue("assessment"),
+        plan: getValue("Plan") || getValue("plan")
+      };
+
+      try {
+        const btn = document.getElementById("btn-save-notes");
+        if (btn) {
+          btn.innerText = "Saving...";
+          btn.disabled = true;
+        }
+
+        const res = await fetch(`${API_BASE_URL}/records/${currentConsultationPatientId}/notes`, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        alert("Notes successfully saved to Patient Record!");
+
+        // AUTO-COMPLETE APPOINTMENT
+        try {
+          const doctorId = sessionStorage.getItem('user_id');
+
+          // 1. Instant UI Feedback: Remove from list using exact ID
+          const queueItem = document.getElementById(`queue-item-${currentConsultationPatientId}`);
+          if (queueItem) {
+            queueItem.style.opacity = '0';
+            queueItem.innerHTML = '<div style="background:#d4edda; color:#155724; padding:15px; border-radius:8px; text-align:center;"><strong><i class="fa-solid fa-check"></i> Completed</strong></div>';
+            queueItem.style.transform = 'translateX(50px)';
+            setTimeout(() => queueItem.remove(), 500); // Wait for transition
+            console.log(`Removed queue item: queue-item-${currentConsultationPatientId}`);
+          } else {
+            console.warn(`Could not find queue item: queue-item-${currentConsultationPatientId}`);
+          }
+
+          // 2. API Call
+          await fetch(`${API_BASE_URL}/queue/complete-current/${doctorId}`, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          console.log("Appointment marked completed");
+
+        } catch (e) {
+          console.error("Failed to mark completed:", e);
+        }
+
+        closeConsultationModal();
+        setTimeout(loadDoctorQueue, 500); // Slight delay to allow DB update
+
+      } catch (e) {
+        alert("Failed to save notes: " + e.message);
+      } finally {
+        const btn = document.getElementById("btn-save-notes");
+        if (btn) {
+          btn.innerText = "Save to Record";
+          btn.disabled = false;
+        }
+      }
+    }
   </script>
+  <script src="bsp_functions.js"></script>
 </body>
 
 </html>

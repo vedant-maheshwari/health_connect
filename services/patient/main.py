@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime
 import uvicorn
+import httpx
+import os
 
 from shared.database import get_db, engine, Base
 from shared import models, schemas
@@ -15,6 +17,9 @@ from shared.auth_utils import get_current_user_id
 app = FastAPI(title="Patient Service", version="1.0.0")
 
 Base.metadata.create_all(bind=engine)
+
+# Triage service URL
+TRIAGE_SERVICE_URL = os.getenv("WOUND_TRIAGE_SERVICE_URL", "http://localhost:8008")
 
 
 @app.get("/health")
@@ -67,12 +72,30 @@ async def get_my_vitals(
     return vitals
 
 
+async def fetch_triage_data(triage_id: str, token: str) -> dict:
+    """Fetch triage case details from triage service"""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"{TRIAGE_SERVICE_URL}/triage/case/{triage_id}",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            if response.status_code == 200:
+                return response.json()
+            else:
+                print(f"Failed to fetch triage data for {triage_id}: {response.status_code}")
+                return None
+    except Exception as e:
+        print(f"Error fetching triage data: {e}")
+        return None
+
+
 @app.get("/patients/me/appointments/detailed")
 async def get_patient_appointments_detailed(
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
-    """Get detailed appointments for current patient"""
+    """Get detailed appointments for current patient with embedded triage data"""
     patient = db.query(models.User).filter(
         models.User.id == user_id,
         models.User.role == models.UserRoles.PATIENT
@@ -82,14 +105,14 @@ async def get_patient_appointments_detailed(
     
     appointments = db.query(models.Appointments).filter(
         models.Appointments.patient_id == user_id
-    ).all()
+    ).order_by(models.Appointments.date_time.desc()).all()
     
-    # Enrich with doctor details
+    # Build detailed appointments with embedded triage data
     detailed_appointments = []
     for appt in appointments:
         doctor = db.query(models.User).filter(models.User.id == appt.doctor_id).first()
         
-        detailed_appointments.append({
+        appt_data = {
             "id": appt.id,
             "doctor_id": appt.doctor_id,
             "doctor_name": doctor.name if doctor else "Unknown",
@@ -100,8 +123,43 @@ async def get_patient_appointments_detailed(
             "status": appt.status,
             "status_display": appt.status.upper(),
             "can_cancel": appt.status in [models.Status.PENDING, models.Status.ACCECPTED],
-            "created_at": appt.date_time.isoformat() if appt.date_time else ""
-        })
+            "created_at": appt.date_time.isoformat() if appt.date_time else "", 
+            "date_time": appt.date_time.isoformat() if appt.date_time else "",
+            "booking_source": appt.booking_source,
+            "severity": appt.severity,
+            "ai_notes": appt.ai_notes,
+            "triage_id": appt.triage_id,
+            "triage_data": None  # Will be populated if triage_id exists
+        }
+        
+        # Robust valid ISO formatting
+        def to_iso(dt):
+            if not dt: return ""
+            # If naive, assume UTC and append Z
+            if dt.tzinfo is None:
+                return dt.isoformat() + "Z"
+            return dt.isoformat()
+
+        appt_data["created_at"] = to_iso(appt.date_time)
+        appt_data["date_time"] = to_iso(appt.date_time)
+        appt_data["appointment_date"] = appt.date_time.strftime("%Y-%m-%d") if appt.date_time else ""
+        # Send raw time string, let frontend handle conversion or format explicitly if needed
+        appt_data["appointment_time"] = appt.date_time.strftime("%H:%M") if appt.date_time else ""
+        
+        # Fetch triage data if triage_id exists
+        if appt.triage_id:
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    response = await client.get(
+                        f"{TRIAGE_SERVICE_URL}/internal/triage/{appt.triage_id}"
+                    )
+                    if response.status_code == 200:
+                        appt_data["triage_data"] = response.json()
+            except Exception as e:
+                print(f"Failed to fetch triage data for {appt.triage_id}: {e}")
+                # Continue without triage data rather than failing
+        
+        detailed_appointments.append(appt_data)
     
     return detailed_appointments
 
@@ -150,44 +208,7 @@ async def get_patient_appointments(
     return appointments
 
 
-@app.get('/patient/appointments/detailed')
-async def get_patient_appointments_detailed(
-    user_id: int = Depends(get_current_user_id),
-    db: Session = Depends(get_db)
-):
-    """Get detailed appointments for the current patient with doctor info"""
-    patient = db.query(models.User).filter(
-        models.User.id == user_id,
-        models.User.role == models.UserRoles.PATIENT
-    ).first()
-    if not patient:
-        raise HTTPException(status_code=403, detail="Only patients can access this endpoint")
-    
-    appointments = db.query(models.Appointments).filter(
-        models.Appointments.patient_id == user_id
-    ).all()
-    
-    result = []
-    for appointment in appointments:
-        doctor_info = db.query(models.User).filter(models.User.id == appointment.doctor_id).first()
-        
-        result.append({
-            "id": appointment.id,
-            "doctor_id": appointment.doctor_id,
-            "doctor_name": doctor_info.name if doctor_info else "Unknown Doctor",
-            "doctor_email": doctor_info.email if doctor_info else "",
-            "appointment_date": appointment.date_time.isoformat(),
-            "appointment_time": appointment.date_time.strftime("%I:%M %p"),
-            "appointment_day": appointment.date_time.strftime("%A, %B %d, %Y"),
-            "status": appointment.status.value,
-            "status_display": appointment.status.value.title(),
-            "can_cancel": appointment.status.value == "pending",
-            "created_at": appointment.date_time.isoformat()
-        })
-    
-    # Sort by appointment date (most recent first)
-    result.sort(key=lambda x: x["appointment_date"], reverse=True)
-    return result
+
 
 
 @app.put('/patient/appointments/{appointment_id}/cancel')
@@ -212,10 +233,15 @@ async def cancel_patient_appointment(
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
     
-    if appointment.status.value != "pending":
-        raise HTTPException(status_code=400, detail="Only pending appointments can be cancelled")
+    allowed_statuses = ["pending", "accepted"]
+    current_status = appointment.status.value if hasattr(appointment.status, 'value') else appointment.status
     
-    appointment.status = models.Status.CANCELLED
+    if current_status not in allowed_statuses:
+        raise HTTPException(status_code=400, detail=f"Cannot cancel appointment with status {current_status}")
+    
+    print(f"DEBUG: Cancelling appointment. models.Status.CANCELLED={models.Status.CANCELLED} value={models.Status.CANCELLED.value}")
+    # Force use of lowercase string "cancelled" to match DB enum
+    appointment.status = "cancelled"
     db.commit()
     db.refresh(appointment)
     

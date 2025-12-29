@@ -387,6 +387,22 @@ async def confirm_slot(
     db.commit()
     db.refresh(appointment)
     
+    # Auto-assign patient to doctor for EMR access
+    from shared.models import DoctorPatientAssignment
+    existing_assignment = db.query(DoctorPatientAssignment).filter(
+        DoctorPatientAssignment.doctor_id == doctor_id,
+        DoctorPatientAssignment.patient_id == patient_id
+    ).first()
+    
+    if not existing_assignment:
+        assignment = DoctorPatientAssignment(
+            doctor_id=doctor_id,
+            patient_id=patient_id,
+            is_primary=False  # Auto-assigned, not explicitly marked as primary
+        )
+        db.add(assignment)
+        db.commit()
+    
     # Delete the reservation
     await redis_client.delete(key)
     
@@ -448,14 +464,23 @@ async def create_appointment(
     db: Session = Depends(get_db)
 ):
     """Create a new appointment"""
+    
+    # Timezone Handling:
+    # If date is Naive, assume it is IST (UTC+5:30) and convert to UTC
+    appt_dt = appointment.appointment_date
+    if appt_dt.tzinfo is None:
+        # Subtract 5.5 hours to get UTC from IST
+        appt_dt = appt_dt - timedelta(hours=5, minutes=30)
+        
     # Create appointment record
     db_appointment = models.Appointments(
         patient_id=user_id,
         doctor_id=appointment.doctor_id,
-        date_time=appointment.appointment_date,
+        date_time=appt_dt,
         status=models.Status.PENDING,
         severity=appointment.severity,
-        triage_id=appointment.triage_id
+        triage_id=appointment.triage_id,
+        booking_source="ai" if appointment.triage_id else appointment.booking_source
     )
     
     db.add(db_appointment)
@@ -606,18 +631,18 @@ async def appointment_response(
         raise HTTPException(status_code=404, detail="Appointment not found")
     
     # Update status
-    if response.status.lower() == "accept" or response.status.lower() == "accepted":
+    if response.action.lower() == "accept" or response.action.lower() == "accepted":
         appointment.status = models.Status.ACCECPTED  # Note: keeping the typo from models
-    elif response.status.lower() == "reject" or response.status.lower() == "rejected":
+    elif response.action.lower() == "reject" or response.action.lower() == "rejected":
         appointment.status = models.Status.REJECTED
     else:
-        raise HTTPException(status_code=400, detail="Invalid status. Use 'accept' or 'reject'")
+        raise HTTPException(status_code=400, detail="Invalid action. Use 'accept' or 'reject'")
     
     db.commit()
     db.refresh(appointment)
     
     return {
-        "message": f"Appointment {response.status}ed successfully",
+        "message": f"Appointment {response.action}ed successfully",
         "appointment_id": appointment.id,
         "status": appointment.status.value
     }
@@ -654,6 +679,437 @@ async def cancel_slot(
     return {
         "message": "Appointment cancelled successfully",
         "appointment_id": appointment.id
+    }
+
+
+# ============================================================
+# QUEUE MANAGEMENT ENDPOINTS
+# ============================================================
+
+SLOT_DURATION_MINUTES = 15  # Estimated minutes per patient
+
+@app.post("/queue/start-day/{doctor_id}")
+async def start_day_queue(
+    doctor_id: int,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Doctor starts their day - automatically queues all today's accepted appointments"""
+    # Verify user is the doctor
+    if user_id != doctor_id:
+        raise HTTPException(status_code=403, detail="Only the doctor can start their own day")
+    
+    user = db.query(models.User).filter(models.User.id == doctor_id).first()
+    if user.role != models.UserRoles.DOCTOR:
+        raise HTTPException(status_code=403, detail="Only doctors can start queue")
+    
+    # Get all accepted appointments for today
+    today = datetime.now().date()
+    today_start = datetime.combine(today, datetime.min.time())
+    today_end = datetime.combine(today, datetime.max.time())
+    
+    appointments = db.query(models.Appointments).filter(
+        models.Appointments.doctor_id == doctor_id,
+        models.Appointments.status == models.Status.ACCECPTED,
+        models.Appointments.date_time >= today_start,
+        models.Appointments.date_time <= today_end
+    ).order_by(models.Appointments.date_time).all()
+    
+    queued_count = 0
+    for position, appointment in enumerate(appointments, 1):
+        # Skip if appointment is already completed
+        if appointment.status == models.Status.COMPLETED:
+            print(f"⏭️  Skipping appointment {appointment.id} - already completed")
+            continue
+            
+        # Check for existing queue entry (any status)
+        existing = db.query(models.AppointmentQueue).filter(
+            models.AppointmentQueue.appointment_id == appointment.id
+        ).first()
+        
+        if existing:
+            # Skip if entry exists (whether active, removed, or completed)
+            # This ensures removed patients stay removed
+            status_msg = f"queue entry exists with status {existing.status}"
+            if existing.status == models.QueueStatus.REMOVED:
+                status_msg = "patient was manually removed from queue"
+            
+            print(f"⏭️  Skipping appointment {appointment.id} - {status_msg}")
+        else:
+            # Create new queue entry only if none exists
+            queue_entry = models.AppointmentQueue(
+                appointment_id=appointment.id,
+                doctor_id=doctor_id,
+                patient_id=appointment.patient_id,
+                queue_position=position,
+                estimated_wait_minutes=(position - 1) * SLOT_DURATION_MINUTES,
+                check_in_time=datetime.now(),
+                status=models.QueueStatus.WAITING
+            )
+            db.add(queue_entry)
+            queued_count += 1
+            print(f"✅ Queued appointment {appointment.id} at position {position}")
+    
+    db.commit()
+    
+    # Calculate actionable appointments (only those queued or active)
+    # We want to exclude completed or removed appointments from the count shown to the user
+    actionable_count = queued_count
+    
+    return {
+        "message": f"Day started! {queued_count} patients queued automatically",
+        "total_patients": actionable_count,
+        "queued": queued_count
+    }
+
+@app.post("/queue/check-in/{appointment_id}")
+async def queue_check_in(
+    appointment_id: int,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Patient checks in for their appointment"""
+    appointment = db.query(models.Appointments).filter(
+        models.Appointments.id == appointment_id,
+        models.Appointments.patient_id == user_id
+    ).first()
+    
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    
+    # Check if already checked in
+    existing = db.query(models.AppointmentQueue).filter(
+        models.AppointmentQueue.appointment_id == appointment_id
+    ).first()
+    
+    if existing:
+        return {
+            "message": "Already checked in",
+            "queue_position": existing.queue_position,
+            "estimated_wait_minutes": existing.estimated_wait_minutes,
+            "status": existing.status.value
+        }
+    
+    # Get current queue position for this doctor
+    doctor_queue = db.query(models.AppointmentQueue).filter(
+        models.AppointmentQueue.doctor_id == appointment.doctor_id,
+        models.AppointmentQueue.status.in_([models.QueueStatus.WAITING, models.QueueStatus.DELAYED])
+    ).count()
+    
+    queue_position = doctor_queue + 1
+    
+    # Get doctor's current delay
+    delay_status = db.query(models.DoctorDelayStatus).filter(
+        models.DoctorDelayStatus.doctor_id == appointment.doctor_id
+    ).first()
+    
+    delay_minutes = delay_status.current_delay_minutes if delay_status else 0
+    estimated_wait = (queue_position - 1) * SLOT_DURATION_MINUTES + delay_minutes
+    
+    # Create queue entry
+    queue_entry = models.AppointmentQueue(
+        appointment_id=appointment_id,
+        doctor_id=appointment.doctor_id,
+        patient_id=user_id,
+        queue_position=queue_position,
+        estimated_wait_minutes=estimated_wait,
+        check_in_time=datetime.now(),
+        status=models.QueueStatus.WAITING
+    )
+    db.add(queue_entry)
+    db.commit()
+    
+    return {
+        "message": "Check-in successful",
+        "queue_position": queue_position,
+        "estimated_wait_minutes": estimated_wait,
+        "status": "waiting"
+    }
+
+
+@app.get("/queue/status/{appointment_id}")
+async def get_queue_status(
+    appointment_id: int,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Get queue status for an appointment"""
+    # Check if in queue
+    queue_entry = db.query(models.AppointmentQueue).filter(
+        models.AppointmentQueue.appointment_id == appointment_id
+    ).first()
+    
+    # If not in queue, return not found
+    # Queue entries are only created when doctor clicks "Start My Day"
+    if not queue_entry:
+        print(f"🔍 Queue entry not found for appointment {appointment_id}")
+        return {
+            "checked_in": False, 
+            "message": "Not in queue yet. Queue will be available when your doctor starts their day."
+        }
+    
+    # Check if this appointment is already completed
+    if queue_entry.status == models.QueueStatus.COMPLETED:
+        print(f"✅ Appointment {queue_entry.appointment_id} is COMPLETED")
+        return {
+            "checked_in": True,
+            "status": "completed",
+            "queue_position": 0,
+            "estimated_wait_minutes": 0,
+            "doctor_delay_minutes": 0,
+            "offer_reschedule": False,
+            "message": "Your appointment is complete. Thank you!"
+        }
+
+    # Recalculate position dynamically based on current queue state
+    # Get all waiting/in-progress patients for this doctor, ordered by check-in time
+    active_queue = db.query(models.AppointmentQueue).filter(
+        models.AppointmentQueue.doctor_id == queue_entry.doctor_id,
+        models.AppointmentQueue.status.in_([models.QueueStatus.WAITING, models.QueueStatus.IN_PROGRESS, models.QueueStatus.DELAYED])
+    ).order_by(models.AppointmentQueue.check_in_time).all()
+    
+    # Find this patient's position in the ordered queue
+    current_position = 1
+    for idx, q in enumerate(active_queue, 1):
+        if q.id == queue_entry.id:
+            current_position = idx
+            break
+    
+    print(f"📊 Dynamic position for appointment {queue_entry.appointment_id}: {current_position} out of {len(active_queue)} in queue")
+    
+    # Get doctor delay
+    delay_status = db.query(models.DoctorDelayStatus).filter(
+        models.DoctorDelayStatus.doctor_id == queue_entry.doctor_id
+    ).first()
+    
+    delay_minutes = delay_status.current_delay_minutes if delay_status else 0
+    estimated_wait = (current_position - 1) * SLOT_DURATION_MINUTES + delay_minutes
+    
+    return {
+        "checked_in": True,
+        "queue_position": current_position,
+        "estimated_wait_minutes": estimated_wait,
+        "status": queue_entry.status.value,
+        "check_in_time": queue_entry.check_in_time.isoformat() if queue_entry.check_in_time else None,
+        "doctor_delay_minutes": delay_minutes,
+        "offer_reschedule": delay_minutes >= 30,
+        "total_in_queue": len(active_queue)
+    }
+
+
+@app.get("/queue/doctor/{doctor_id}")
+async def get_doctor_queue(
+    doctor_id: int,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Get current queue for a doctor (doctor view)"""
+    # Verify user is the doctor
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user.role != models.UserRoles.DOCTOR or user_id != doctor_id:
+        raise HTTPException(status_code=403, detail="Only the doctor can view their queue")
+    
+    queue = db.query(models.AppointmentQueue).filter(
+        models.AppointmentQueue.doctor_id == doctor_id,
+        models.AppointmentQueue.status.in_([
+            models.QueueStatus.WAITING, 
+            models.QueueStatus.IN_PROGRESS, 
+            models.QueueStatus.DELAYED
+        ])
+    ).order_by(models.AppointmentQueue.check_in_time).all()
+    
+    # Get delay status
+    delay_status = db.query(models.DoctorDelayStatus).filter(
+        models.DoctorDelayStatus.doctor_id == doctor_id
+    ).first()
+    
+    queue_list = []
+    for i, q in enumerate(queue, 1):
+        patient = db.query(models.User).filter(models.User.id == q.patient_id).first()
+        queue_list.append({
+            "queue_id": q.id,
+            "appointment_id": q.appointment_id,
+            "patient_id": q.patient_id,
+            "patient_name": patient.name if patient else "Unknown",
+            "position": i,
+            "status": q.status.value,
+            "check_in_time": q.check_in_time.isoformat() if q.check_in_time else None,
+            # Dynamic Wait Time: (Position in line - 1) * 15 mins + Delay
+            # If In-Progress, wait is 0.
+            "waiting_minutes": 0 if q.status == models.QueueStatus.IN_PROGRESS else max(0, (i - 1) * 15 + (delay_status.current_delay_minutes if delay_status else 0)) 
+        })
+    
+    return {
+        "queue": queue_list,
+        "total_waiting": len(queue_list),
+        "current_delay_minutes": delay_status.current_delay_minutes if delay_status else 0,
+        "delay_reason": delay_status.reason if delay_status else None
+    }
+
+
+@app.post("/queue/update-delay")
+async def update_doctor_delay(
+    delay_minutes: int,
+    reason: str = None,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Doctor reports running late"""
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user.role != models.UserRoles.DOCTOR:
+        raise HTTPException(status_code=403, detail="Only doctors can update delay status")
+    
+    # Update or create delay status
+    delay_status = db.query(models.DoctorDelayStatus).filter(
+        models.DoctorDelayStatus.doctor_id == user_id
+    ).first()
+    
+    if delay_status:
+        delay_status.current_delay_minutes = delay_minutes
+        delay_status.last_updated = datetime.now()
+        delay_status.reason = reason
+    else:
+        delay_status = models.DoctorDelayStatus(
+            doctor_id=user_id,
+            current_delay_minutes=delay_minutes,
+            reason=reason
+        )
+        db.add(delay_status)
+    
+    db.commit()
+    
+    # Update all waiting patients' status if delay > 0
+    if delay_minutes > 0:
+        db.query(models.AppointmentQueue).filter(
+            models.AppointmentQueue.doctor_id == user_id,
+            models.AppointmentQueue.status == models.QueueStatus.WAITING
+        ).update({"status": models.QueueStatus.DELAYED})
+        db.commit()
+    
+    return {
+        "message": f"Delay updated to {delay_minutes} minutes",
+        "offer_reschedule_to_patients": delay_minutes >= 30
+    }
+
+
+@app.post("/queue/complete-current/{doctor_id}")
+async def complete_current_patient(
+    doctor_id: int,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Mark the current in-progress appointment as completed"""
+    if user_id != doctor_id:
+        raise HTTPException(status_code=403, detail="Only the doctor can complete appointments")
+    
+    # Mark current in-progress as completed
+    current = db.query(models.AppointmentQueue).filter(
+        models.AppointmentQueue.doctor_id == doctor_id,
+        models.AppointmentQueue.status == models.QueueStatus.IN_PROGRESS
+    ).first()
+    
+    if current:
+        current.status = models.QueueStatus.COMPLETED
+        
+        # Also update the appointment status to COMPLETED
+        appointment = db.query(models.Appointments).filter(
+            models.Appointments.id == current.appointment_id
+        ).first()
+        if appointment:
+            appointment.status = models.Status.COMPLETED
+        
+        db.commit()
+        return {"message": "Appointment completed successfully"}
+    
+    return {"message": "No active appointment to complete"}
+
+
+@app.post("/queue/call-next/{doctor_id}")
+async def call_next_patient(
+    doctor_id: int,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Doctor calls the next patient in queue"""
+    if user_id != doctor_id:
+        raise HTTPException(status_code=403, detail="Only the doctor can call next patient")
+    
+    # Mark current in-progress as completed
+    current = db.query(models.AppointmentQueue).filter(
+        models.AppointmentQueue.doctor_id == doctor_id,
+        models.AppointmentQueue.status == models.QueueStatus.IN_PROGRESS
+    ).first()
+    
+    if current:
+        current.status = models.QueueStatus.COMPLETED
+        
+        # Also update the appointment status to COMPLETED
+        appointment = db.query(models.Appointments).filter(
+            models.Appointments.id == current.appointment_id
+        ).first()
+        if appointment:
+            appointment.status = models.Status.COMPLETED
+            print(f"✅ Marked appointment {appointment.id} as COMPLETED")
+        
+        db.commit()
+    
+    # Get next waiting patient
+    next_patient = db.query(models.AppointmentQueue).filter(
+        models.AppointmentQueue.doctor_id == doctor_id,
+        models.AppointmentQueue.status.in_([models.QueueStatus.WAITING, models.QueueStatus.DELAYED])
+    ).order_by(models.AppointmentQueue.check_in_time).first()
+    
+    if not next_patient:
+        return {"message": "No more patients in queue", "next_patient": None}
+    
+    next_patient.status = models.QueueStatus.IN_PROGRESS
+    db.commit()
+    
+    patient = db.query(models.User).filter(models.User.id == next_patient.patient_id).first()
+    
+    return {
+        "message": "Next patient called",
+        "next_patient": {
+            "patient_id": next_patient.patient_id,
+            "patient_name": patient.name if patient else "Unknown",
+            "appointment_id": next_patient.appointment_id
+        }
+    }
+
+
+@app.delete("/queue/remove/{queue_id}")
+async def remove_from_queue(
+    queue_id: int,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Remove a patient from the queue (doctor only)"""
+    # Get the queue entry
+    queue_entry = db.query(models.AppointmentQueue).filter(
+        models.AppointmentQueue.id == queue_id
+    ).first()
+    
+    if not queue_entry:
+        raise HTTPException(status_code=404, detail="Queue entry not found")
+    
+    # Verify user is the doctor for this queue entry
+    if queue_entry.doctor_id != user_id:
+        raise HTTPException(status_code=403, detail="Only the doctor can remove patients from their queue")
+    
+    # Get patient info
+    patient = db.query(models.User).filter(models.User.id == queue_entry.patient_id).first()
+    patient_name = patient.name if patient else "Unknown"
+    
+    # Mark as REMOVED instead of deleting to prevent re-queuing
+    # This prevents "Start My Day" from picking it up again
+    queue_entry.status = models.QueueStatus.REMOVED
+    db.commit()
+    
+    print(f"🚫 Removed {patient_name} from queue (marked as REMOVED)")
+    
+    return {
+        "message": f"{patient_name} removed from queue",
+        "queue_id": queue_id
     }
 
 

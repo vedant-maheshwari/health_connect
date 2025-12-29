@@ -35,7 +35,10 @@ from app.services import (
     resolve_and_train, # Added for treat & train button
     _construct_system_prompt, # Added for prompt inspector
     get_relevant_lessons, # Added for prompt inspector
-    delete_case # Added for admin tools
+    delete_case, # Added for admin tools
+    generate_clinical_advice, # Added
+    analyze_consultation_transcript, # Added
+    transcribe_audio_sarvam # Added
 )
 from app.models import (
     TriageRequest, 
@@ -48,12 +51,17 @@ from app.models import (
     User,
     Token,
     CaseResolution, # Added
-    Triage # Added
+    Triage, # Added
+    ClinicalSupportRequest, # Added
+    ClinicalSupportResponse, # Added
+    ConsultationAnalysisRequest, # Added
+    ConsultationAnalysisResponse # Added
 )
 from app.auth import (
     ACCESS_TOKEN_EXPIRE_MINUTES, 
     create_access_token, 
-    get_current_active_user, 
+    get_current_active_user,
+    get_current_user,
     get_current_doctor,
     get_current_admin,
     verify_password,
@@ -128,7 +136,8 @@ async def assess_symptoms(
     description: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
     patient_id: Optional[str] = Form(None),
-    language: Optional[str] = Form("en")
+    language: Optional[str] = Form("en"),
+    translation: Optional[str] = Form(None) # Optional translation from Sarvam (saves API time)
 ):
     """
     Analyze patient symptoms and return triage recommendation.
@@ -148,8 +157,9 @@ async def assess_symptoms(
             image_bytes = await image.read()
             image_b64 = base64.b64encode(image_bytes).decode()
         
-        # Analyze with AI (pass language for multilingual support)
-        result = analyze_triage(description, image_b64, language)
+        # Analyze with AI (pass language and translation for optimization)
+        # Pass 'translation' if available to skip LLM translation step
+        result = analyze_triage(description, image_b64, language, translation=translation)
         
         # Generate patient ID if not provided
         if not patient_id:
@@ -214,12 +224,13 @@ async def assess_symptoms(
 
 @app.get("/triage/history")
 async def get_triage_history(
-    limit: int = Query(10, ge=1, le=50),
+    limit: int = Query(10, ge=1, le=100),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Get the current user's triage assessment history"""
+    """Get the current user's triage assessment history with full details"""
     try:
         from app.database import feedback_collection
+        import base64
         
         # Query cases for this user from MongoDB feedback collection
         user_email = current_user.username
@@ -228,25 +239,44 @@ async def get_triage_history(
         cases = list(feedback_collection().find({
             "$or": [
                 {"patient_id": user_email},
-                # {"patient_id": current_user.username}, # Redundant
                 {"email": user_email}
             ]
         }).sort("timestamp", -1).limit(limit))
         
-        # Format for frontend
+        # Format for frontend with full details
         result = []
         for case in cases:
+            # Convert image bytes to base64 if exists
+            image_b64 = None
+            if case.get("input_image"):
+                try:
+                    image_b64 = base64.b64encode(case["input_image"]).decode()
+                except:
+                    image_b64 = None
+            
             result.append({
                 "case_id": str(case.get("_id", "")),
                 "timestamp": case.get("timestamp", case.get("created_at", "")),
-                "severity": case.get("ai_severity", case.get("severity", 1)),
-                "priority": case.get("ai_priority", case.get("priority", "low")),
-                "analysis": case.get("ai_analysis", case.get("notes", "")),
-                "recommended_action": case.get("recommended_action", ""),
-                "status": case.get("status", "submitted"),
-                "specialty": case.get("specialty", "General"),
-                "notes": case.get("notes", case.get("ai_analysis", "")),
-                "validated": case.get("validated", False)
+                # Original input
+                "original_text": case.get("input_text", ""),
+                "original_image": image_b64,
+                # AI Analysis
+                "ai_specialty": case.get("ai_specialty", case.get("specialty", "General")),
+                "ai_severity": case.get("ai_severity", case.get("severity", 1)),
+                "ai_notes": case.get("ai_notes", case.get("notes", "")),
+                # Doctor Corrections (if any)
+                "doctor_specialty": case.get("doctor_specialty"),
+                "doctor_severity": case.get("doctor_severity"),
+                "doctor_notes": case.get("doctor_notes"),
+                "doctor_corrected": case.get("feedback_given", False),
+                # Status fields
+                "status": case.get("clinical_status", "pending"),
+                "validated": case.get("feedback_given", False),
+                # Legacy compatibility
+                "severity": case.get("doctor_severity") or case.get("ai_severity", 1),
+                "specialty": case.get("doctor_specialty") or case.get("ai_specialty", "General"),
+                "notes": case.get("doctor_notes") or case.get("ai_notes", ""),
+                "recommended_action": case.get("recommended_action", "")
             })
         
         return {"history": result, "count": len(result)}
@@ -254,6 +284,64 @@ async def get_triage_history(
     except Exception as e:
         print(f"Error getting triage history: {e}")
         return {"history": [], "count": 0}
+
+
+@app.get("/internal/triage/{case_id}")
+async def get_triage_internal(case_id: str):
+    """
+    Internal endpoint for fetching triage data (no auth required)
+    Used by other microservices to get triage details
+    """
+    try:
+        from app.database import feedback_collection
+        from bson import ObjectId
+        import base64
+        
+        print(f"DEBUG Internal Triage: Fetching case_id={case_id}")
+        
+        try:
+            oid = ObjectId(case_id)
+        except Exception as e:
+            print(f"DEBUG Internal Triage: Invalid ObjectId format for {case_id}: {e}")
+            raise HTTPException(status_code=400, detail="Invalid ID format")
+
+        case = feedback_collection().find_one({"_id": oid})
+        
+        if not case:
+            print(f"DEBUG Internal Triage: Case not found for ID {case_id}")
+            # Try searching without ObjectId just in case (legacy data)
+            case = feedback_collection().find_one({"_id": case_id})
+            if not case:
+                print("DEBUG Internal Triage: Case not found with string ID either")
+                raise HTTPException(status_code=404, detail="Triage case not found")
+            else:
+                print("DEBUG Internal Triage: Found case with string ID!")
+        
+        print(f"DEBUG Internal Triage: Found case! ID={case['_id']}")
+
+        # Convert image to base64 if exists
+        image_b64 = None
+        if case.get("input_image"):
+            try:
+                image_b64 = base64.b64encode(case["input_image"]).decode()
+            except:
+                image_b64 = None
+        
+        return {
+            "case_id": str(case["_id"]),
+            "original_text": case.get("input_text", ""),
+            "original_image": image_b64,
+            "ai_severity": case.get("ai_severity", 1),
+            "ai_notes": case.get("ai_notes", ""),
+            "ai_specialty": case.get("ai_specialty", "General")
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in internal triage endpoint: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ============================================================
 # Doctor Review Endpoints
@@ -293,14 +381,41 @@ async def get_pending_reviews_endpoint(current_user: User = Depends(get_current_
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/triage/case/{case_id}")
-async def get_case_detail(case_id: str, current_user: User = Depends(get_current_doctor)):
-    """Get detailed information about a specific case"""
+async def get_case_detail(case_id: str, current_user: User = Depends(get_current_user)):
+    """Get detailed information about a specific case - accessible by patients (own cases) and doctors"""
     try:
         feedback = get_collection("feedback")
         case = feedback.find_one({"_id": ObjectId(case_id)})
         
         if not case:
             raise HTTPException(status_code=404, detail="Case not found")
+        
+        try:
+            # Check permissions: doctors can see all, patients can only see their own
+            # Note: current_user.username contains the email from JWT token
+            user_email = current_user.username
+            case_patient_id = case.get("patient_id")
+            case_email = case.get("email")
+            
+            print(f"🔍 CASE ACCESS CHECK: user_email={user_email}, user_role={current_user.role}")
+            print(f"🔍 CASE DATA: patient_id={case_patient_id}, email={case_email}")
+            
+            if current_user.role == "PATIENT":
+                # Patients can only access their own cases
+                if case_patient_id != user_email and case_email != user_email:
+                    print(f"❌ ACCESS DENIED: User {user_email} tried to access case with patient_id={case_patient_id}, email={case_email}")
+                    raise HTTPException(status_code=403, detail="Access denied to this case")
+                print(f"✅ ACCESS GRANTED: Patient can access their own case")
+            else:
+                print(f"✅ ACCESS GRANTED: Doctor can access all cases")
+        except AttributeError as e:
+            print(f"❌ AttributeError in permission check: {e}")
+            print(f"current_user type: {type(current_user)}")
+            print(f"current_user: {current_user}")
+            raise HTTPException(status_code=500, detail=f"Permission check error: {str(e)}")
+        except Exception as e:
+            print(f"❌ Exception in permission check: {e}")
+            raise
         
         # Convert ObjectId and bytes for JSON serialization
         case_dict = {
@@ -323,6 +438,13 @@ async def get_case_detail(case_id: str, current_user: User = Depends(get_current
         }
         
         return case_dict
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ ERROR in get_case_detail: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
@@ -411,6 +533,59 @@ async def validate_assessment(validation: DoctorValidation, current_user: User =
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Clinical Decision Support Endpoint
+# ============================================================
+
+@app.post("/triage/clinical-support", response_model=ClinicalSupportResponse)
+async def get_clinical_support(request: ClinicalSupportRequest, current_user: User = Depends(get_current_doctor)):
+    """
+    Get AI-powered clinical decision support: Differential Diagnosis, Treatment, Labs.
+    Requires Doctor privileges.
+    """
+    try:
+        return generate_clinical_advice(request)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/triage/consultation/analyze", response_model=ConsultationAnalysisResponse)
+async def analyze_consultation(request: ConsultationAnalysisRequest, current_user: User = Depends(get_current_doctor)):
+    """
+    Analyze consultation transcript to generate SOAP notes and Patient Summary.
+    """
+    try:
+        return analyze_consultation_transcript(request)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================================
+# Transcription Endpoint (Sarvam AI)
+# ============================================================
+
+@app.post("/triage/transcribe")
+async def transcribe_audio(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Transcribe audio file using Sarvam AI (Hinglish support).
+    Accepts: audio/wav, audio/webm, audio/mp3.
+    """
+    try:
+        # Read file
+        audio_bytes = await file.read()
+        
+        # Call service - returns dict {"original": ..., "translated": ...}
+        result = transcribe_audio_sarvam(audio_bytes)
+        
+        return {
+            "transcript": result.get("original", ""),
+            "translation": result.get("translated", "")
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -662,3 +837,5 @@ if __name__ == "__main__":
         reload=settings.debug,
         log_level="info"
     )
+
+

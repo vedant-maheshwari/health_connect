@@ -34,6 +34,8 @@ SERVICES = {
     "admin": os.getenv("ADMIN_SERVICE_URL", "http://localhost:8007"),
     "triage": os.getenv("WOUND_TRIAGE_SERVICE_URL", "http://localhost:8008"),
     "notification": os.getenv("NOTIFICATION_SERVICE_URL", "http://localhost:8009"),
+    "records": os.getenv("RECORDS_SERVICE_URL", "http://records-service:8000"),
+    "bsp": os.getenv("BSP_SERVICE_URL", "http://localhost:8012"),
 }
 
 # Mount static files (frontend) - uses Docker volume mount
@@ -392,6 +394,77 @@ async def find_best_slot_proxy(request: Request, token: str = Depends(oauth2_sch
     return response
 
 
+# Queue Management Routes
+@app.api_route("/queue/start-day/{doctor_id}", methods=["POST", "OPTIONS"])
+async def start_day(doctor_id: int, request: Request, token: str = Depends(oauth2_schema)):
+    """Doctor starts their day - auto-queues all appointments"""
+    if request.method == "OPTIONS":
+        return {}
+    response = await proxy_request(SERVICES["appointment"], f"/queue/start-day/{doctor_id}", request, token)
+    return response
+
+@app.api_route("/queue/check-in/{appointment_id}", methods=["POST", "OPTIONS"])
+async def queue_check_in(appointment_id: int, request: Request, token: str = Depends(oauth2_schema)):
+    """Patient check-in for queue"""
+    if request.method == "OPTIONS":
+        return {}
+    response = await proxy_request(SERVICES["appointment"], f"/queue/check-in/{appointment_id}", request, token)
+    return response
+
+
+@app.api_route("/queue/status/{appointment_id}", methods=["GET", "OPTIONS"])
+async def queue_status(appointment_id: int, request: Request, token: str = Depends(oauth2_schema)):
+    """Get queue status for appointment"""
+    if request.method == "OPTIONS":
+        return {}
+    response = await proxy_request(SERVICES["appointment"], f"/queue/status/{appointment_id}", request, token)
+    return response
+
+
+@app.api_route("/queue/doctor/{doctor_id}", methods=["GET", "OPTIONS"])
+async def get_doctor_queue(doctor_id: int, request: Request, token: str = Depends(oauth2_schema)):
+    """Get doctor's patient queue"""
+    if request.method == "OPTIONS":
+        return {}
+    response = await proxy_request(SERVICES["appointment"], f"/queue/doctor/{doctor_id}", request, token)
+    return response
+
+
+@app.api_route("/queue/update-delay", methods=["POST", "OPTIONS"])
+async def update_delay(request: Request, token: str = Depends(oauth2_schema)):
+    """Doctor reports delay"""
+    if request.method == "OPTIONS":
+        return {}
+    response = await proxy_request(SERVICES["appointment"], "/queue/update-delay", request, token)
+    return response
+
+
+@app.api_route("/queue/call-next/{doctor_id}", methods=["POST", "OPTIONS"])
+async def call_next_patient(doctor_id: int, request: Request, token: str = Depends(oauth2_schema)):
+    """Doctor calls next patient"""
+    if request.method == "OPTIONS":
+        return {}
+    response = await proxy_request(SERVICES["appointment"], f"/queue/call-next/{doctor_id}", request, token)
+    return response
+
+
+@app.api_route("/queue/complete-current/{doctor_id}", methods=["POST", "OPTIONS"])
+async def complete_current_patient(doctor_id: int, request: Request, token: str = Depends(oauth2_schema)):
+    """Complete current patient"""
+    if request.method == "OPTIONS":
+        return {}
+    response = await proxy_request(SERVICES["appointment"], f"/queue/complete-current/{doctor_id}", request, token)
+    return response
+
+
+@app.api_route("/queue/remove/{queue_id}", methods=["DELETE", "OPTIONS"])
+async def remove_from_queue(queue_id: int, request: Request, token: str = Depends(oauth2_schema)):
+    """Remove patient from queue"""
+    if request.method == "OPTIONS":
+        return {}
+    response = await proxy_request(SERVICES["appointment"], f"/queue/remove/{queue_id}", request, token)
+    return response
+
 # Family Service Routes
 @app.api_route("/family/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 async def family_routes(path: str, request: Request, token: str = Depends(oauth2_schema)):
@@ -553,3 +626,19 @@ async def notification_routes(path: str, request: Request, token: str = Depends(
         return {}
     response = await proxy_request(SERVICES["notification"], f"/{path}", request, token)
     return response
+
+
+@app.api_route("/records/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+async def records_proxy(path: str, request: Request, token: str = Depends(oauth2_schema)):
+    if request.method == "OPTIONS":
+        return {}
+    return await proxy_request(SERVICES["records"], f"/records/{path}", request, token)
+
+
+@app.api_route("/bsp/{path:path}", methods=["GET", "POST", "OPTIONS"])
+async def bsp_routes(path: str, request: Request, token: str = Depends(oauth2_schema)):
+    """BSP Toolkit routes"""
+    if request.method == "OPTIONS":
+        return {}
+    return await proxy_request(SERVICES["bsp"], f"/{path}", request, token)
+

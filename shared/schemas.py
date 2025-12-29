@@ -84,6 +84,7 @@ class BookAppointment(BaseModel):
     appointment_date : datetime
     severity: Optional[int] = 1
     triage_id: Optional[str] = None
+    booking_source: Optional[str] = "manual"
 
 class AppointmentResponse(BaseModel):
     appointment_id : int

@@ -5,8 +5,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Doctor Appointments</title>
-  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+  <link href="assets/fullcalendar.min.css" rel="stylesheet">
+  <script src="assets/fullcalendar.min.js" defer></script>
   <style>
     * {
       margin: 0;
@@ -437,6 +437,12 @@
             <!-- Image injected here -->
           </div>
           <div style="flex:1;">
+            <h4>Patient Complaint</h4>
+            <div
+              style="background:#f8f9fa; padding:10px; border-radius:6px; margin-bottom:15px; border-left:4px solid #4285f4;">
+              <p id="patientInputText" style="margin:0; font-style:italic; color:#555;"></p>
+            </div>
+
             <h4>AI Assessment</h4>
             <p><strong>Specialty:</strong> <span id="aiSpecialty"></span></p>
             <p><strong>Severity:</strong> <span id="aiSeverity"></span>/5</p>
@@ -444,6 +450,8 @@
           </div>
         </div>
 
+
+        <!-- Clinical Decision Support -->
         <hr style="margin:20px 0;">
 
         <h4>Doctor Validation (Feedback)</h4>
@@ -634,6 +642,7 @@
         const data = await res.json();
 
         // Populate Modal
+        document.getElementById("patientInputText").textContent = data.input_text || "No text provided.";
         document.getElementById("aiSpecialty").textContent = data.ai_specialty;
         document.getElementById("aiSeverity").textContent = data.ai_severity;
         document.getElementById("aiNotes").textContent = data.ai_notes;
@@ -735,6 +744,8 @@
         alert('Error updating appointment.');
       }
     }
+    window.respond = respond;
+
     window.respond = respond;
   </script>
 </body>

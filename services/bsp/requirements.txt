@@ -1,0 +1,8 @@
+fastapi>=0.100.0
+uvicorn>=0.20.0
+python-multipart
+tensorflow==2.20.0
+wfdb==4.1.2
+scipy
+numpy<2.0.0
+keras==3.12.0

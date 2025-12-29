@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Patient Record EMR</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Global Styles usually shared, copying essentials */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            margin: 0;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4285f4 0%, #1976d2 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #4285f4;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #3367d6;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+        }
+
+        /* Tabs */
+        .nav-tabs {
+            display: flex;
+            background: white;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            background: white;
+            cursor: pointer;
+            font-size: 16px;
+            color: #666;
+        }
+
+        .nav-tab.active {
+            background: #4285f4;
+            color: white;
+            font-weight: 600;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+            border-left: 2px solid #e0e0e0;
+            margin-left: 20px;
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 30px;
+        }
+
+        .timeline-dot {
+            position: absolute;
+            left: -36px;
+            top: 0;
+            width: 14px;
+            height: 14px;
+            background: #4285f4;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .timeline-date {
+            font-size: 0.85em;
+            color: #888;
+            margin-bottom: 5px;
+        }
+
+        .soap-note {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #4285f4;
+        }
+
+        .soap-section {
+            margin-bottom: 10px;
+        }
+
+        .soap-label {
+            font-weight: 600;
+            font-size: 0.9em;
+            color: #555;
+            text-transform: uppercase;
+        }
+
+        /* Vitals Grid */
+        .vitals-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .vital-card {
+            background: #f0f4ff;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .vital-value {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #1976d2;
+        }
+
+        .vital-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            width: 90%;
+            max-width: 600px;
+            padding: 30px;
+            border-radius: 12px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+
+        .close-btn {
+            float: right;
+            cursor: pointer;
+            font-size: 24px;
+            color: #aaa;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <div class="container" style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <h1 id="patientNameHeader">Loading Patient...</h1>
+                <p id="patientIdHeader" style="opacity: 0.8; font-size: 0.9em;">ID: --</p>
+            </div>
+            <div>
+                <button class="btn" style="background: rgba(255,255,255,0.2); color: white;"
+                    onclick="window.location.href='doctor_dashboard.html'">Back to Dashboard</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="switchTab('overview')">Overview</button>
+            <button class="nav-tab" onclick="switchTab('visits')">Visits & Notes</button>
+            <button class="nav-tab" onclick="switchTab('vitals')">Vitals History</button>
+        </div>
+
+        <!-- Overview Tab -->
+        <div id="overview-tab" class="tab-content active">
+            <!-- Quick Actions -->
+            <div style="margin-bottom: 20px;">
+                <button class="btn btn-primary" onclick="openNoteModal()">+ Add Visit Note</button>
+                <button class="btn btn-primary" onclick="openVitalsModal()" style="margin-left: 10px;">+ Log
+                    Vitals</button>
+            </div>
+
+            <div class="card">
+                <h3>Latest Vitals</h3>
+                <div id="latestVitals" class="vitals-grid" style="margin-top: 15px;">
+                    Loading...
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Recent History</h3>
+                <div id="recentNotes">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Visits Tab -->
+        <div id="visits-tab" class="tab-content">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+                    <h3>Clinical Timeline</h3>
+                    <button class="btn btn-primary" onclick="openNoteModal()">+ Add Note</button>
+                </div>
+                <div id="timelineContainer" class="timeline">
+                    <!-- JS will populate -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Vitals Tab -->
+        <div id="vitals-tab" class="tab-content">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+                    <h3>Vitals Trends</h3>
+                    <button class="btn btn-primary" onclick="openVitalsModal()">+ Log New</button>
+                </div>
+                <canvas id="vitalsChart" height="100"></canvas>
+            </div>
+            <div class="card">
+                <h3>History Log</h3>
+                <table style="width:100%; text-align:left; border-collapse: collapse;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <th style="padding:10px;">Date</th>
+                            <th>BP</th>
+                            <th>HR</th>
+                            <th>Temp</th>
+                            <th>SpO2</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vitalsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Note Modal -->
+    <div id="noteModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeNoteModal()">&times;</span>
+            <h2>Add Clinical Note (SOAP)</h2>
+            <form id="noteForm" onsubmit="handleNoteSubmit(event)">
+                <div class="form-group">
+                    <label>Chief Complaint</label>
+                    <input type="text" id="noteCC" required placeholder="e.g. Severe headache" />
+                </div>
+                <div class="form-group">
+                    <label>Subjective</label>
+                    <textarea id="noteS" rows="3" placeholder="History of present illness..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Objective</label>
+                    <textarea id="noteO" rows="3" placeholder="Physical exam findings..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Assessment</label>
+                    <textarea id="noteA" rows="2" placeholder="Diagnosis..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Plan</label>
+                    <textarea id="noteP" rows="3" placeholder="Treatment plan..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%">Save Note</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Log Vitals Modal -->
+    <div id="vitalsModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeVitalsModal()">&times;</span>
+            <h2>Log Vitals</h2>
+            <form id="vitalsForm" onsubmit="handleVitalsSubmit(event)">
+                <div style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1">
+                        <label>BP Systolic</label>
+                        <input type="number" id="vitalSys" placeholder="120" />
+                    </div>
+                    <div class="form-group" style="flex:1">
+                        <label>BP Diastolic</label>
+                        <input type="number" id="vitalDia" placeholder="80" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Heart Rate (BPM)</label>
+                    <input type="number" id="vitalHR" placeholder="72" />
+                </div>
+                <div class="form-group">
+                    <label>Temperature (°F)</label>
+                    <input type="number" step="0.1" id="vitalTemp" placeholder="98.6" />
+                </div>
+                <div class="form-group">
+                    <label>Oxygen Saturation (%)</label>
+                    <input type="number" id="vitalO2" placeholder="98" />
+                </div>
+                <div class="form-group">
+                    <label>Weight (kg)</label>
+                    <input type="number" step="0.1" id="vitalWeight" placeholder="70.5" />
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%">Log Vitals</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const urlParams = new URLSearchParams(window.location.search);
+        const PATIENT_ID = urlParams.get('patient_id');
+        const PATIENT_NAME = urlParams.get('name'); // Passed for convenience
+        let token = localStorage.getItem('token');
+
+        // Verify auth
+        if (!token) window.location.href = 'index.html';
+        if (!PATIENT_ID) alert("No patient specified");
+
+        document.getElementById('patientNameHeader').textContent = PATIENT_NAME || "Patient Record";
+        document.getElementById('patientIdHeader').textContent = `ID: ${PATIENT_ID}`;
+
+        // Tab Logic
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId + '-tab').classList.add('active');
+            // Find button to active
+            // Simple lookup based on text content or index? manual for now
+            const tabs = ['overview', 'visits', 'vitals'];
+            document.querySelectorAll('.nav-tab')[tabs.indexOf(tabId)].classList.add('active');
+
+            if (tabId === 'vitals') renderVitalsChart();
+        }
+
+        // Fetch Data
+        async function loadData() {
+            await Promise.all([loadHistory(), loadVitals()]);
+        }
+
+        let historyData = [];
+        let vitalsData = [];
+
+        async function loadHistory() {
+            try {
+                const res = await fetch(`${API_BASE}/records/${PATIENT_ID}/history`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error("Failed to load history");
+                historyData = await res.json();
+                renderTimeline(historyData);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function loadVitals() {
+            try {
+                const res = await fetch(`${API_BASE}/records/${PATIENT_ID}/vitals`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error("Failed to load vitals");
+                vitalsData = await res.json();
+                renderVitalsWidgets(vitalsData);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Render Functions
+        function renderTimeline(data) {
+            const container = document.getElementById('timelineContainer');
+            const recentContainer = document.getElementById('recentNotes');
+
+            if (data.length === 0) {
+                container.innerHTML = "<p>No visit notes recorded.</p>";
+                recentContainer.innerHTML = "<p>No recent notes.</p>";
+                return;
+            }
+
+            const html = data.map(note => `
+      <div class="timeline-item">
+        <div class="timeline-dot"></div>
+        <div class="timeline-date">${new Date(note.created_at).toLocaleString()} • Dr. ${note.doctor_name || 'Unknown'}</div>
+        <div class="soap-note">
+          <div class="soap-section"><span class="soap-label">CC:</span> ${note.chief_complaint}</div>
+          ${note.subjective ? `<div class="soap-section"><span class="soap-label">S:</span> ${note.subjective}</div>` : ''}
+          ${note.objective ? `<div class="soap-section"><span class="soap-label">O:</span> ${note.objective}</div>` : ''}
+          ${note.assessment ? `<div class="soap-section"><span class="soap-label">A:</span> ${note.assessment}</div>` : ''}
+          ${note.plan ? `<div class="soap-section"><span class="soap-label">P:</span> ${note.plan}</div>` : ''}
+        </div>
+      </div>
+    `).join('');
+
+            container.innerHTML = html;
+
+            // Recent: show top 1
+            const latest = data[0];
+            recentContainer.innerHTML = `
+      <div style="padding:10px; border-left:3px solid #4285f4; background:#f9f9f9;">
+        <strong>${new Date(latest.created_at).toLocaleDateString()}</strong>: ${latest.chief_complaint}<br>
+        <span style="color:#666; font-size:0.9em;">${latest.assessment || ''}</span>
+      </div>
+    `;
+        }
+
+        function renderVitalsWidgets(data) {
+            if (data.length === 0) {
+                document.getElementById('latestVitals').innerHTML = "No vitals recorded";
+                return;
+            }
+            const latest = data[0];
+            const html = `
+      <div class="vital-card"><div class="vital-value">${latest.bp_systolic}/${latest.bp_diastolic}</div><div class="vital-label">BP (mmHg)</div></div>
+      <div class="vital-card"><div class="vital-value">${latest.heart_rate}</div><div class="vital-label">Heart Rate</div></div>
+      <div class="vital-card"><div class="vital-value">${latest.oxygen_saturation}%</div><div class="vital-label">SpO2</div></div>
+      <div class="vital-card"><div class="vital-value">${latest.temperature}°</div><div class="vital-label">Temp (F)</div></div>
+    `;
+            document.getElementById('latestVitals').innerHTML = html;
+
+            // Table
+            const tableHtml = data.map(v => `
+      <tr style="border-bottom: 1px solid #eee;">
+        <td style="padding:10px;">${new Date(v.recorded_at).toLocaleDateString()}</td>
+        <td>${v.bp_systolic}/${v.bp_diastolic}</td>
+        <td>${v.heart_rate}</td>
+        <td>${v.temperature}</td>
+        <td>${v.oxygen_saturation}</td>
+      </tr>
+    `).join('');
+            document.getElementById('vitalsTableBody').innerHTML = tableHtml;
+        }
+
+        let chartInstance = null;
+        function renderVitalsChart() {
+            const ctx = document.getElementById('vitalsChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            // Prepare data (reverse for chronological chart)
+            const reversed = [...vitalsData].reverse();
+            const labels = reversed.map(d => new Date(d.recorded_at).toLocaleDateString());
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Sys BP', data: reversed.map(d => d.bp_systolic), borderColor: 'red', tension: 0.1 },
+                        { label: 'Dia BP', data: reversed.map(d => d.bp_diastolic), borderColor: 'pink', tension: 0.1 },
+                        { label: 'Heart Rate', data: reversed.map(d => d.heart_rate), borderColor: 'blue', tension: 0.1 }
+                    ]
+                },
+                options: { responsive: true }
+            });
+        }
+
+        // Modal Handling
+        function openNoteModal() { document.getElementById('noteModal').style.display = 'flex'; }
+        function closeNoteModal() { document.getElementById('noteModal').style.display = 'none'; }
+        function openVitalsModal() { document.getElementById('vitalsModal').style.display = 'flex'; }
+        function closeVitalsModal() { document.getElementById('vitalsModal').style.display = 'none'; }
+
+        async function handleNoteSubmit(e) {
+            e.preventDefault();
+            const payload = {
+                chief_complaint: document.getElementById('noteCC').value,
+                subjective: document.getElementById('noteS').value,
+                objective: document.getElementById('noteO').value,
+                assessment: document.getElementById('noteA').value,
+                plan: document.getElementById('noteP').value,
+            };
+
+            const res = await fetch(`${API_BASE}/records/${PATIENT_ID}/notes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                closeNoteModal();
+                loadHistory(); // Reload
+                document.getElementById('noteForm').reset();
+            } else {
+                alert("Failed to save note");
+            }
+        }
+
+        async function handleVitalsSubmit(e) {
+            e.preventDefault();
+            const payload = {
+                bp_systolic: document.getElementById('vitalSys').value || null,
+                bp_diastolic: document.getElementById('vitalDia').value || null,
+                heart_rate: document.getElementById('vitalHR').value || null,
+                temperature: document.getElementById('vitalTemp').value || null,
+                oxygen_saturation: document.getElementById('vitalO2').value || null,
+                weight: document.getElementById('vitalWeight').value || null,
+            };
+
+            const res = await fetch(`${API_BASE}/records/${PATIENT_ID}/vitals`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                closeVitalsModal();
+                loadVitals(); // Reload
+                document.getElementById('vitalsForm').reset();
+            } else {
+                alert("Failed to log vitals");
+            }
+        }
+
+        // Init
+        loadData();
+
+    </script>
+</body>
+
+</html>

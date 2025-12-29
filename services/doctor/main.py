@@ -26,6 +26,85 @@ async def health_check():
     return {"status": "healthy", "service": "doctor"}
 
 
+@app.get("/doctors/me/patients")
+async def get_my_patients(
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Get assigned patients for the current doctor"""
+    # Verify doctor
+    doctor = db.query(models.User).filter(models.User.id == user_id, models.User.role == models.UserRoles.DOCTOR).first()
+    if not doctor:
+        raise HTTPException(status_code=403, detail="Only doctors allow")
+
+    assignments = db.query(models.DoctorPatientAssignment).filter(
+        models.DoctorPatientAssignment.doctor_id == user_id
+    ).all()
+    
+    patients = []
+    for a in assignments:
+        if a.patient:
+            patients.append(a.patient)
+            
+    return patients
+
+
+@app.post("/doctors/me/patients/{patient_id}")
+async def assign_patient(
+    patient_id: int,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Assign a patient to the current doctor"""
+    # Check if already assigned
+    existing = db.query(models.DoctorPatientAssignment).filter(
+        models.DoctorPatientAssignment.doctor_id == user_id,
+        models.DoctorPatientAssignment.patient_id == patient_id
+    ).first()
+    
+    if existing:
+        return {"message": "Patient already assigned"}
+        
+    # Verify patient exists
+    patient = db.query(models.User).filter(models.User.id == patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    new_assign = models.DoctorPatientAssignment(
+        doctor_id=user_id,
+        patient_id=patient_id
+    )
+    db.add(new_assign)
+    db.commit()
+    return {"message": "Patient assigned successfully"}
+
+
+@app.get("/doctors/patients/search")
+async def search_patients(
+    q: str,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Search for patients by name or email"""
+    # Verify user is a doctor
+    doctor = db.query(models.User).filter(
+        models.User.id == user_id,
+        models.User.role == models.UserRoles.DOCTOR
+    ).first()
+    if not doctor:
+        raise HTTPException(status_code=403, detail="Only doctors can search patients")
+    
+    # Search patients by name or email
+    search_term = f"%{q.lower()}%"
+    patients = db.query(models.User).filter(
+        models.User.role == models.UserRoles.PATIENT,
+        (models.User.name.ilike(search_term)) | (models.User.email.ilike(search_term))
+    ).limit(10).all()
+    
+    return patients
+
+
+
 @app.get("/doctors")
 async def get_all_doctors(db: Session = Depends(get_db)):
     """Get all doctors"""
@@ -347,6 +426,9 @@ async def add_vital(
         "patient_name": patient.name,
         "timestamp": vital_record.timestamp.isoformat()
     }
+
+
+
 
 
 if __name__ == "__main__":

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Dashboard Refresh</title>
+    <script>
+        // Force clear cache and reload
+        if ('caches' in window) {
+            caches.keys().then(function (names) {
+                for (let name of names) caches.delete(name);
+            });
+        }
+
+        // Clear sessionStorage
+        sessionStorage.clear();
+
+        // Add timestamp to prevent caching
+        const timestamp = new Date().getTime();
+        window.location.href = `patient_dashboard.html?nocache=${timestamp}`;
+    </script>
+</head>
+
+<body>
+    <p>Clearing cache and redirecting...</p>
+</body>
+
+</html>

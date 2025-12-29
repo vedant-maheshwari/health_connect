@@ -251,7 +251,7 @@
       border-left: 4px solid #4285f4;
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
+      align-items: center;
       flex-wrap: wrap;
       gap: 16px;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -260,6 +260,7 @@
     .appointment-info {
       flex: 1;
       min-width: 250px;
+      text-align: left;
     }
 
     .appointment-date {
@@ -300,6 +301,11 @@
     .appointment-status.rejected {
       background: #f8d7da;
       color: #721c24;
+    }
+
+    .appointment-status.completed {
+      background: #28a745;
+      color: white;
     }
 
     .appointment-actions {
@@ -643,6 +649,30 @@
 </head>
 
 <body>
+  <!-- AI Analysis Modal -->
+  <div id="aiModal"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;"
+    onclick="if(event.target === this) closeAIModal()">
+    <div
+      style="background: white; border-radius: 12px; max-width: 600px; max-height: 90vh; overflow-y: auto; margin: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);">
+      <!-- Modal Header -->
+      <div
+        style="background: linear-gradient(to right, #4285f4, #5294f5); color: white; padding: 20px; border-radius: 12px 12px 0 0; position: sticky; top: 0; z-index: 1;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0; font-size: 1.4em;">AI Health Analysis Report</h2>
+          <button onclick="closeAIModal()"
+            style="background: rgba(255,255,255,0.3); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 1.2em; display: flex; align-items: center; justify-content: center;"
+            title="Close">&times;</button>
+        </div>
+      </div>
+
+      <!-- Modal Body -->
+      <div id="aiModalContent" style="padding: 24px;">
+        <!-- Content will be injected here -->
+      </div>
+    </div>
+  </div>
+
   <header>Patient Dashboard</header>
 
   <div class="container">
@@ -651,11 +681,12 @@
     <div class="tabs" role="tablist" aria-label="Patient dashboard navigation">
       <div class="tab active" role="tab" aria-selected="true" tabindex="0" data-target="profile">Profile</div>
       <div class="tab" role="tab" aria-selected="false" tabindex="-1" data-target="appointments">Appointments</div>
-      <div class="tab" role="tab" aria-selected="false" tabindex="-1" data-target="ai-triage">AI Health Check</div>
+
       <!-- NEW -->
       <div class="tab" role="tab" aria-selected="false" tabindex="-1" data-target="chats">Chats</div>
-      <div class="tab" role="tab" aria-selected="false" tabindex="-1" data-target="vitals">Vitals</div>
       <div class="tab" role="tab" aria-selected="false" tabindex="-1" data-target="family">Family</div>
+      <div class="tab" role="tab" aria-selected="false" tabindex="-1"
+        onclick="window.location.href='my_health_records.html'" style="cursor:pointer;">My Health Records</div>
     </div>
 
     <!-- Profile Section -->
@@ -671,6 +702,14 @@
 
     <!-- Appointments Section -->
     <section id="appointments" class="section" role="tabpanel" tabindex="-1" aria-hidden="true">
+      <!-- Queue Status Card -->
+      <div class="card" id="queueStatusCard" style="display:none; border-left:4px solid #6366f1;">
+        <h3 style="color:#6366f1;">Your Queue Status</h3>
+        <div id="queueStatusContent">
+          <p>Loading queue status...</p>
+        </div>
+      </div>
+
       <div class="card">
         <h3>My Appointments</h3>
         <a href="create_appointment.html" class="button" role="button">Book New Appointment</a>
@@ -754,18 +793,7 @@
       </div>
     </section>
     <!-- AI Triage Section -->
-    <section id="ai-triage" class="section" role="tabpanel" tabindex="-1" aria-hidden="true">
-      <div class="card">
-        <h3> AI Health Assistant</h3>
-        <p>Get instant medical guidance based on your symptoms</p>
-        <a href="triage_booking.html" class="button" style="margin-top: 1rem;">Start AI Health Check</a>
-      </div>
 
-      <div class="card">
-        <h3>Your Recent AI Assessments</h3>
-        <div id="triageHistoryContainer" class="loading-state">Loading assessments...</div>
-      </div>
-    </section>
   </div>
 
   <script src="config.js"></script>
@@ -893,22 +921,24 @@
     }
 
     // Appointments functionality - ORIGINAL PATIENT CODE
+
     async function loadAppointments() {
       const container = document.getElementById("appointmentsContainer");
       container.innerHTML = '<div class="loading-state">Loading appointments...</div>';
 
       try {
-        const res = await fetch(`${API_BASE_URL}/patient/me/appointments/detailed`, {
+        // Fetch appointments with embedded triage data
+        const appointmentsRes = await fetch(`${API_BASE_URL}/patient/me/appointments/detailed`, {
           headers: {
             "Authorization": "Bearer " + token,
             "Content-Type": "application/json"
           }
         });
 
-        console.log('Appointments API response status:', res.status);
+        console.log('Appointments API response status:', appointmentsRes.status);
 
-        if (!res.ok) {
-          if (res.status === 404) {
+        if (!appointmentsRes.ok) {
+          if (appointmentsRes.status === 404) {
             container.innerHTML = `
               <div class="empty-state">
                 <h4>No appointments scheduled</h4>
@@ -918,10 +948,10 @@
             `;
             return;
           }
-          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+          throw new Error(`HTTP ${appointmentsRes.status}: ${appointmentsRes.statusText}`);
         }
 
-        const appointments = await res.json();
+        const appointments = await appointmentsRes.json();
         console.log('Appointments data:', appointments);
 
         container.innerHTML = "";
@@ -937,28 +967,72 @@
           return;
         }
 
+        console.log("Total appointments fetched:", appointments.length);
         appointments.forEach(appointment => {
-          const div = document.createElement("div");
-          div.className = "appointment-item";
-          const statusClass = appointment.status.toLowerCase();
+          try {
+            console.log("Rendering apt ID:", appointment.id);
+            const div = document.createElement("div");
+            div.className = "appointment-item";
+            const statusClass = appointment.status.toLowerCase();
 
-          div.innerHTML = `
-            <div class="appointment-info">
-              <div class="appointment-date">${appointment.appointment_day}</div>
-              <div class="appointment-doctor"><strong>Dr. ${appointment.doctor_name}</strong></div>
-              <div class="appointment-time">${appointment.appointment_time}</div>
-            </div>
-            <div class="appointment-actions">
-              <div class="appointment-status ${statusClass}">${appointment.status_display}</div>
-              ${appointment.can_cancel ?
-              `<button class="button danger" onclick="cancelAppointment(${appointment.id})" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;">Cancel</button>`
-              : ''
+            // Format Date
+            // Try date_time, created_at, date with validation
+            let rawDate = appointment.date_time || appointment.created_at || appointment.date;
+            let dateObj = new Date(rawDate);
+
+            if (isNaN(dateObj.getTime())) {
+              console.warn("Invalid date for appointment:", appointment.id, rawDate);
+              dateObj = new Date(); // Fallback to current date
             }
-            </div>
-          `;
 
-          container.appendChild(div);
+            const fullDate = dateObj.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+            // Fix timezone - convert UTC to local time
+            const time = new Date(appointment.date_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' });
+            // AI Details - create button for actions section
+            let aiButtonHtml = '';
+            console.log("Apt ID:", appointment.id, "booking_source:", appointment.booking_source);
+            if (appointment.booking_source === 'ai') {
+              console.log("✅ Rendering AI button for appointment", appointment.id);
+
+              // Store appointment in window object for onclick access
+              window[`appointment_${appointment.id}`] = appointment;
+
+              aiButtonHtml = `
+                <button 
+                  onclick="openAIModal(window.appointment_${appointment.id})" 
+                  style="padding: 0.4rem 0.8rem; background: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: 500;"
+                >
+                  AI Analysis
+                </button>
+              `;
+            } else {
+              console.log("❌ No AI card - booking_source:", appointment.booking_source);
+            }
+            console.log("Final aiButtonHtml length:", aiButtonHtml.length);
+
+            div.innerHTML = `
+                <div class="appointment-info">
+                  <div class="appointment-date" style="font-size: 0.9em; color: #666;">${fullDate}</div>
+                  <div class="appointment-doctor"><strong>Dr. ${appointment.doctor_name || 'Assigned Doctor'}</strong></div>
+                  <div class="appointment-time" style="font-size: 1.1em; font-weight: 600;">${time}</div>
+                </div>
+                <div class="appointment-actions">
+                  <div class="appointment-status ${statusClass}">${appointment.status_display || appointment.status}</div>
+                  ${(appointment.can_cancel && appointment.status !== 'completed') ?
+                `<button class="button danger" onclick="cancelAppointment(${appointment.id})" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;">Cancel</button>`
+                : ''
+              }
+                  ${aiButtonHtml}
+                </div>
+              `;
+            container.appendChild(div);
+          } catch (itemError) {
+            console.error("Critical error rendering appointment " + appointment.id, itemError);
+          }
         });
+
+        // Check for today's appointments after loading
+        checkTodayAppointments(appointments);
       } catch (error) {
         console.error('Error loading appointments:', error);
         container.innerHTML = `
@@ -969,6 +1043,147 @@
           </div>
         `;
       }
+    }
+
+    // ============================================================
+    // QUEUE MANAGEMENT FUNCTIONS
+    // ============================================================
+
+    let queuePollingInterval = null;
+
+    function checkTodayAppointments(appointments) {
+      // Automatically show queue status for today's accepted appointments (no manual check-in)
+      const now = new Date();
+      const today = now.toDateString();
+
+      console.log("Auto-checking queue for today's appointments");
+
+      // Find today's accepted appointments
+      const todayAppointments = appointments.filter(apt => {
+        let aptDate = new Date(apt.date_time || apt.created_at || apt.date);
+        if (isNaN(aptDate.getTime())) return false;
+
+        const isAccepted = (
+          apt.status === 'accepted' ||
+          apt.status_display === 'ACCEPTED' ||
+          apt.status_display === 'Accepted' ||
+          apt.status_display === 'ACCECPTED' // Typo in DB
+        );
+        const isToday = aptDate.toDateString() === today;
+
+        console.log(`Checking Apt ${apt.id}: Status=${apt.status_display}, Date=${aptDate.toDateString()}, IsAccepted=${isAccepted}, IsToday=${isToday}`);
+
+        return isAccepted && isToday;
+      });
+
+      if (todayAppointments.length === 0) {
+        document.getElementById('queueStatusCard').style.display = 'none';
+        return;
+      }
+
+      // Auto-load queue status for first appointment
+      const apt = todayAppointments[0];
+      console.log("Auto-loading queue for appointment:", apt.id);
+      loadQueueStatus(apt.id);
+
+      // Poll every 15 seconds
+      if (queuePollingInterval) clearInterval(queuePollingInterval);
+      queuePollingInterval = setInterval(() => loadQueueStatus(apt.id), 15000);
+    }
+
+    // queueCheckIn function removed - auto-queue handles this on backend
+
+    async function loadQueueStatus(appointmentId) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/queue/status/${appointmentId}`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+        displayQueueStatus(appointmentId, data);
+      } catch (error) {
+        console.error('Queue status error:', error);
+      }
+    }
+
+    function displayQueueStatus(appointmentId, data) {
+      const queueCard = document.getElementById('queueStatusCard');
+      const queueContent = document.getElementById('queueStatusContent');
+
+      console.log("📊 Queue Status:", data);
+
+      // If not checked in yet (doctor hasn't started day), hide the card
+      if (data.checked_in === false) {
+        console.log("⏸️ Not in queue yet");
+        queueCard.style.display = 'none';
+        if (queuePollingInterval) {
+          clearInterval(queuePollingInterval);
+          queuePollingInterval = null;
+        }
+        return;
+      }
+
+      // If appointment is completed, hide the queue card
+      if (data.status === 'completed' || data.queue_position === 0) {
+        console.log("✅ Appointment completed, hiding queue card");
+        queueCard.style.display = 'none';
+        if (queuePollingInterval) {
+          clearInterval(queuePollingInterval);
+          queuePollingInterval = null;
+        }
+        return;
+      }
+
+      // Always show the queue card (auto-queue ensures data exists)
+      queueCard.style.display = 'block';
+
+      let statusColor = '#28a745';
+      let statusText = 'Waiting';
+      if (data.status === 'in_progress') {
+        statusColor = '#007bff';
+        statusText = 'Your Turn!';
+      } else if (data.status === 'delayed') {
+        statusColor = '#ffc107';
+        statusText = 'Delayed';
+      }
+
+      let html = `
+        <div style="text-align:center; padding:20px;">
+          <div style="font-size:3rem; font-weight:bold; color:#6366f1;">#${data.queue_position}</div>
+          <div style="font-size:1rem; color:#666; margin-bottom:15px;">Your position in queue</div>
+          
+          <div style="background:#f0f0f0; border-radius:8px; padding:15px; margin-bottom:15px;">
+            <div style="font-size:1.5rem; font-weight:600;">${data.estimated_wait_minutes} min</div>
+            <div style="font-size:0.9rem; color:#666;">Estimated wait time</div>
+          </div>
+          
+          <div style="display:inline-block; background:${statusColor}; color:white; padding:6px 16px; border-radius:20px; font-weight:500;">
+            ${statusText}
+          </div>
+      `;
+
+      if (data.doctor_delay_minutes > 0) {
+        html += `
+          <div style="margin-top:15px; padding:10px; background:#fff3cd; border-radius:6px; color:#856404;">
+            Doctor is running ${data.doctor_delay_minutes} min late
+          </div>
+        `;
+      }
+
+      if (data.offer_reschedule) {
+        html += `
+          <div style="margin-top:15px; padding:15px; background:#f8d7da; border-radius:8px; color:#721c24;">
+            <strong>Long delay detected!</strong>
+            <p style="margin:8px 0;">Would you like to reschedule?</p>
+            <button class="button" onclick="window.location.href='create_appointment.html'" style="background:#dc3545;">Reschedule</button>
+          </div>
+        `;
+      }
+
+      html += '</div>';
+      queueContent.innerHTML = html;
     }
 
     // Cancel appointment function
@@ -1594,7 +1809,7 @@
       }
     }
 
-    // AI Triage History - NEW FUNCTION
+    // AI Triage History - Simplified with expandable details
     async function loadTriageHistory() {
       const container = document.getElementById("triageHistoryContainer");
       container.innerHTML = '<div class="loading-state">Loading AI assessments...</div>';
@@ -1623,7 +1838,6 @@
         const response = await res.json();
         console.log('Triage history:', response);
 
-        // Extract history array from response object
         const assessments = response.history || response || [];
 
         container.innerHTML = "";
@@ -1638,27 +1852,74 @@
           return;
         }
 
-        assessments.forEach(assessment => {
+        assessments.forEach((assessment, index) => {
           const div = document.createElement("div");
-          div.className = `card severity-${assessment.severity}`;
-          div.style.borderLeft = `5px solid ${getSeverityColor(assessment.severity)}`;
+          div.className = `card`;
+          const finalSeverity = assessment.doctor_severity || assessment.ai_severity || assessment.severity;
+          div.style.borderLeft = `5px solid ${getSeverityColor(finalSeverity)}`;
           div.style.marginBottom = "1rem";
+          div.style.cursor = "pointer";
+
+          // Determine if doctor corrected
+          const wasCorrected = assessment.doctor_corrected || assessment.validated;
+          const statusBadge = wasCorrected
+            ? '<span style="background:#d4edda; color:#155724; padding:2px 8px; border-radius:4px; font-size:11px;">Reviewed</span>'
+            : '<span style="background:#e3f2fd; color:#1565c0; padding:2px 8px; border-radius:4px; font-size:11px;">AI Analysis</span>';
+
+          // Truncate text for preview
+          const previewText = (assessment.original_text || 'No description').substring(0, 100) + (assessment.original_text && assessment.original_text.length > 100 ? '...' : '');
 
           div.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
-          <div style="flex: 1;">
-            <h4 style="margin-bottom: 8px;">${assessment.specialty} Consultation</h4>
-            <p style="color: #666; margin-bottom: 4px;">${assessment.notes}</p>
-            <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 8px;">
-              <span style="font-size: 12px; color: #999;">Severity: <strong>${assessment.severity}/5</strong></span>
-              ${assessment.confidence ? `<span style="font-size: 12px; color: #999;">AI Confidence: ${(assessment.confidence * 100).toFixed(0)}%</span>` : ''}
+        <div onclick="toggleTriageDetails('triage-details-${index}')" style="cursor:pointer;">
+          <!-- Preview Section - Always Visible -->
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+            <div style="flex:1;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                ${statusBadge}
+                <span style="font-size:12px; color:#999;">${formatDate(assessment.timestamp)}</span>
+              </div>
+              <p style="margin:0; color:#333; font-size:14px;">${previewText}</p>
             </div>
-            ${assessment.validated ? `<span style="font-size: 12px; color: #28a745;">✅ Doctor Validated</span>` : ''}
-            <p style="font-size: 12px; color: #999; margin-top: 8px;">${formatDate(assessment.created_at)}</p>
+            ${assessment.original_image ? `
+              <img src="data:image/jpeg;base64,${assessment.original_image}" 
+                   style="width:60px; height:60px; object-fit:cover; border-radius:6px;"
+                   alt="Uploaded" />
+            ` : ''}
           </div>
-          <div class="appointment-actions">
-            ${!assessment.validated ? `<button class="button" onclick="bookFromTriage(${assessment.id})" style="font-size: 0.9rem;">Book Appointment</button>` : ''}
+          <div style="text-align:center; margin-top:8px; color:#999; font-size:12px;">
+            Click to view details
           </div>
+        </div>
+        
+        <!-- Expandable Details Section -->
+        <div id="triage-details-${index}" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid #eee;">
+          <!-- Full Original Input -->
+          <div style="background:#f8f9fa; padding:12px; border-radius:6px; margin-bottom:12px;">
+            <strong style="font-size:12px; color:#666;">Your Description:</strong>
+            <p style="margin:8px 0; color:#333;">${assessment.original_text || 'No text provided'}</p>
+            ${assessment.original_image ? `
+              <img src="data:image/jpeg;base64,${assessment.original_image}" 
+                   style="max-width:100%; max-height:300px; border-radius:6px; margin-top:8px; cursor:pointer;"
+                   onclick="event.stopPropagation(); window.open('data:image/jpeg;base64,${assessment.original_image}', '_blank')"
+                   alt="Uploaded image" />
+            ` : ''}
+          </div>
+          
+          <!-- AI Analysis -->
+          <div style="background:#e3f2fd; padding:12px; border-radius:6px; margin-bottom:12px;">
+            <strong style="font-size:12px; color:#1565c0;">AI Analysis:</strong>
+            <p style="margin:8px 0;">${assessment.ai_notes || assessment.notes || 'No analysis available'}</p>
+            <span style="font-size:12px; color:#666;">Severity: <strong>${assessment.ai_severity || assessment.severity}/5</strong></span>
+          </div>
+          
+          ${wasCorrected ? `
+          <!-- Doctor Review -->
+          <div style="background:#d4edda; padding:12px; border-radius:6px;">
+            <strong style="font-size:12px; color:#155724;">Doctor's Review:</strong>
+            <p style="margin:8px 0;">${assessment.doctor_notes || 'No additional notes'}</p>
+            ${assessment.doctor_severity ? `<span style="font-size:12px; color:#666;">Final Severity: <strong>${assessment.doctor_severity}/5</strong></span>` : ''}
+          </div>
+          ` : ''}
         </div>
       `;
 
@@ -1676,12 +1937,184 @@
       }
     }
 
+    // Toggle triage details visibility
+    function toggleTriageDetails(id) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.style.display = el.style.display === 'none' ? 'block' : 'none';
+      }
+    }
+
     function getSeverityColor(severity) {
       const colors = {
         5: '#dc3545', 4: '#fd7e14', 3: '#ffc107',
         2: '#28a745', 1: '#6c757d'
       };
       return colors[severity] || '#6c757d';
+    }
+
+    function openAIModal(appointment) {
+      const modal = document.getElementById('aiModal');
+      const modalContent = document.getElementById('aiModalContent');
+
+      // Extract data from appointment object
+      const severity = appointment.severity || 1;
+      const triageData = appointment.triage_data || {};
+      const aiNotes = appointment.ai_notes || triageData.notes || triageData.ai_notes || '';
+      const severityColor = getSeverityColor(severity);
+      const severityLabel = {
+        5: 'Critical', 4: 'High', 3: 'Moderate',
+        2: 'Mild', 1: 'Low'
+      }[severity] || 'Unknown';
+
+      // triageData already defined above
+      const originalText = triageData.original_text || '';
+      const originalImage = triageData.original_image || null; // Base64 string
+
+      const severityDescription = getSeverityDescription(severity);
+
+      modalContent.innerHTML = `
+        <div style="margin-bottom: 24px;">
+          <div style="background: linear-gradient(to right, #f8fafc, white); padding: 16px; border-left: 4px solid ${severityColor}; border-radius: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+              <strong style="color: #4285f4; font-size: 1em;">Severity Assessment</strong>
+              <span style="background: ${severityColor}; color: white; padding: 4px 12px; border-radius: 16px; font-size: 0.85em; font-weight: 600;">
+                ${severityLabel} (${severity}/5)
+              </span>
+            </div>
+            <p style="margin: 0; color: #333; font-size: 0.95em; line-height: 1.6;">${severityDescription}</p>
+          </div>
+        </div>
+        
+        ${originalText ? `
+          <div style="margin-bottom: 24px;">
+            <strong style="color: #4285f4; font-size: 1em; display: block; margin-bottom: 12px;">Patient's Complaint</strong>
+            <div style="background: #f8fafc; padding: 16px; border-radius: 8px; border-left: 4px solid #4285f4;">
+              <p style="margin: 0; color: #333; font-size: 0.95em; line-height: 1.7;">${originalText}</p>
+            </div>
+          </div>
+        ` : ''}
+
+        ${originalImage ? `
+          <div style="margin-bottom: 24px;">
+            <strong style="color: #4285f4; font-size: 1em; display: block; margin-bottom: 12px;">Uploaded Image</strong>
+            <div style="background: #f8fafc; padding: 16px; border-radius: 8px; text-align: center;">
+              <img src="data:image/jpeg;base64,${originalImage}" 
+                   style="max-width: 100%; max-height: 300px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" 
+                   alt="Triage Image" />
+            </div>
+          </div>
+        ` : ''}
+        
+        ${aiNotes && aiNotes !== 'null' && aiNotes !== 'undefined' ? `
+          <div style="margin-bottom: 24px;">
+            <strong style="color: #4285f4; font-size: 1em; display: block; margin-bottom: 12px;">AI Medical Assessment</strong>
+            <div style="background: #f8fafc; padding: 16px; border-radius: 8px; border-left: 4px solid #4285f4;">
+              <p style="margin: 0; color: #333; font-size: 0.95em; line-height: 1.7;">${aiNotes}</p>
+            </div>
+          </div>
+        ` : ''}
+        
+        <div style="background: linear-gradient(135deg, #e8f0fe 0%, #f0f7ff 100%); padding: 16px; border-radius: 8px; border: 1px solid #4285f440;">
+          <p style="margin: 0; font-size: 0.9em; color: #555; line-height: 1.6;">
+            <strong>Important:</strong> This AI analysis is provided for preliminary assessment purposes only. Please consult with your assigned doctor for professional medical diagnosis and treatment recommendations.
+          </p>
+        </div>
+      `;
+
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeAIModal() {
+      document.getElementById('aiModal').style.display = 'none';
+      document.body.style.overflow = 'auto';
+    }
+
+    async function loadTriageData(triageId) {
+      const complaintSection = document.getElementById('patientComplaintSection');
+      const complaintText = document.getElementById('patientComplaintText');
+      const imageSection = document.getElementById('triageImageSection');
+
+      console.log('Loading triage data for ID:', triageId);
+
+      try {
+        // Fetch the triage case details with auth
+        const response = await fetch(`${API_BASE_URL}/triage/case/${triageId}`, {
+          headers: {
+            'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+          }
+        });
+
+        console.log('Triage API response status:', response.status);
+
+        if (response.ok) {
+          const caseData = await response.json();
+          console.log('Triage case data received:', caseData);
+
+          // Always show complaint section, even if empty
+          complaintSection.style.display = 'block';
+
+          if (caseData.input_text && caseData.input_text.trim()) {
+            complaintText.textContent = caseData.input_text;
+            complaintText.style.fontStyle = 'normal'; // Reset style if previously italic
+            complaintText.style.color = '#333'; // Reset color if previously error color
+            console.log('Displaying patient complaint:', caseData.input_text);
+          } else {
+            complaintText.textContent = 'No description provided during triage assessment.';
+            complaintText.style.fontStyle = 'italic';
+            complaintText.style.color = '#999';
+            console.log('No input_text in case data');
+          }
+        } else {
+          console.error('Failed to fetch triage case. Status:', response.status);
+          complaintSection.style.display = 'block';
+          complaintText.textContent = 'Unable to load patient complaint (API Error)';
+          complaintText.style.color = '#e74c3c';
+          complaintText.style.fontStyle = 'normal';
+        }
+      } catch (error) {
+        console.error('Error loading triage case data:', error);
+        complaintSection.style.display = 'block';
+        complaintText.textContent = 'Unable to load patient complaint (Network Error)';
+        complaintText.style.color = '#e74c3c';
+        complaintText.style.fontStyle = 'normal';
+      }
+
+      // Always try to load image separately
+      try {
+        const imageUrl = `${API_BASE_URL}/triage/case/${triageId}/image`;
+        console.log('Attempting to load image from:', imageUrl);
+
+        const imgResponse = await fetch(imageUrl);
+        if (imgResponse.ok) {
+          imageSection.innerHTML = `
+            <strong style="color: #4285f4; font-size: 1em; display: block; margin-bottom: 12px;">Uploaded Image</strong>
+            <div style="background: #f8fafc; padding: 16px; border-radius: 8px;">
+              <img src="${imageUrl}" alt="Patient uploaded image" style="max-width: 100%; height: auto; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            </div>
+          `;
+          imageSection.style.display = 'block';
+          console.log('Image loaded successfully');
+        } else {
+          console.log('No image found (status:', imgResponse.status, ')');
+          imageSection.style.display = 'none'; // Hide if no image
+        }
+      } catch (error) {
+        console.log('No image available:', error.message);
+        imageSection.style.display = 'none'; // Hide if error
+      }
+    }
+
+    function getSeverityDescription(severity) {
+      const descriptions = {
+        1: 'Non-urgent condition. General consultation recommended within a week.',
+        2: 'Mild symptoms. Schedule an appointment at your earliest convenience.',
+        3: 'Moderate condition requiring attention. Consult doctor within 2-3 days.',
+        4: 'High priority. Urgent consultation recommended within 24 hours.',
+        5: 'Critical condition. Immediate medical attention required.'
+      };
+      return descriptions[severity] || 'Severity assessment unavailable.';
     }
 
     async function bookFromTriage(assessmentId) {

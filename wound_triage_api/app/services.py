@@ -30,7 +30,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from app.database import get_collection, get_mongo_client
 from app.config import settings, SPECIALTY_OPTIONS
 from app.models import User, UserInDB, Triage
-from app.models import TriageResponse, CaseDetail, LearningAnalytics, CorrectionResponse
+from app.models import TriageResponse, CaseDetail, LearningAnalytics, CorrectionResponse, ClinicalSupportRequest, ClinicalSupportResponse, ConsultationAnalysisRequest, ConsultationAnalysisResponse
 from app.config import settings
 import cohere
 from openai import OpenAI
@@ -139,6 +139,80 @@ Return JSON: {format_instructions}"""
 def get_current_prompt() -> str:
     """Load the current base prompt (never changes)"""
     return _default_prompt()
+
+# ------------------------------------------------------------
+# Sarvam AI Integration
+# ------------------------------------------------------------
+class SarvamService:
+    BASE_URL = "https://api.sarvam.ai/speech-to-text"
+    
+    @staticmethod
+    def transcribe(audio_file: bytes, language_code: str = "hi-IN") -> str:
+        """
+        Transcribe audio using Sarvam AI.
+        Supports Hindi/Hinglish optimization.
+        """
+        import requests
+        
+        api_key = os.getenv("SARVAM_API_KEY")
+        if not api_key:
+            raise ValueError("SARVAM_API_KEY not configured")
+            
+        # Create multipart form data
+        files = {
+            'file': ('audio.wav', audio_file, 'audio/wav')
+        }
+        data = {
+            'model': 'saarika:v2.5', # Updated from v1 (deprecated)
+            'language_code': language_code, # 'hi-IN' defaults to mixed
+            'with_diarization': 'false'
+        }
+        headers = {
+            'api-subscription-key': api_key
+        }
+        
+        print(f"🎙️ Sending audio to Sarvam AI (len={len(audio_file)} bytes)")
+        
+        try:
+            # 1. Get Transcription (Saarika)
+            print("🎙️ Requesting Transcription (Saarika:v2.5)...")
+            data['model'] = 'saarika:v2.5'
+            resp_trans = requests.post(SarvamService.BASE_URL, headers=headers, files=files, data=data, timeout=30)
+            original_text = ""
+            if resp_trans.status_code == 200:
+                original_text = resp_trans.json().get("transcript", "")
+            else:
+                print(f"❌ Saarika Error: {resp_trans.text}")
+
+            # 2. Get Translation (Saaras)
+            print("This will save time and api request.")
+            print("🎙️ Requesting Translation (Saaras:v2.5)...")
+            
+            # Reset file pointer or recreate files dict
+            files_trans = {'file': ('audio.wav', audio_file, 'audio/wav')}
+            data['model'] = 'saaras:v2.5' # Translation Model
+            
+            resp_transl = requests.post(SarvamService.BASE_URL, headers=headers, files=files_trans, data=data, timeout=30)
+            translated_text = ""
+            if resp_transl.status_code == 200:
+                translated_text = resp_transl.json().get("transcript", "")
+            else:
+                 print(f"❌ Saaras Error: {resp_transl.text}")
+
+            print(f"✅ Sarvam Result: Original='{original_text[:20]}...', Translated='{translated_text[:20]}...'")
+            
+            return {
+                "original": original_text,
+                "translated": translated_text
+            }
+            
+        except Exception as e:
+            print(f"❌ Transcription failed: {str(e)}")
+            raise
+
+def transcribe_audio_sarvam(audio_bytes: bytes) -> Dict[str, str]:
+    """Wrapper for Sarvam Service"""
+    return SarvamService.transcribe(audio_bytes)
 
 # ------------------------------------------------------------
 # Learning System with Embeddings - FIXED FOR LOCAL MONGODB
@@ -311,6 +385,34 @@ Focus on CLINICAL REASONING, not just facts. Explain WHY, not just WHAT."""
             "contextual_guidance": ""
         }
 
+def translate_to_english(text: str) -> str:
+    """
+    Translate text to English using LLM for standardized RAG embedding.
+    Handles Hindi, Hinglish, or mixed text.
+    """
+    if not text:
+        return ""
+        
+    try:
+        # Quick check for Devanagari (Hindi script)
+        has_hindi = any('\u0900' <= c <= '\u097F' for c in text)
+        
+        # Heuristic: If no Hindi script and looks like English, maybe skip?
+        # But Hinglish (Roman Hindi) exists, so safest to use LLM.
+        
+        print(f"🌐 Translating to English: '{text[:50]}...'")
+        messages = [
+            SystemMessage(content="You are a medical translator. Translate the following patient complaint to English. Maintain all clinical details. If the text is already in English, return it exactly as is. Output ONLY the English text."),
+            HumanMessage(content=text)
+        ]
+        response = llm.invoke(messages)
+        english_text = response.content.strip()
+        print(f"✅ Translation result: '{english_text[:50]}...'")
+        return english_text
+    except Exception as e:
+        print(f"⚠️ Translation failed: {e}")
+        return text
+
 def store_lesson(case_id: str, complaint: str, ai_result: Triage, doctor_result: Triage):
     """
     Enhanced lesson extraction with semantic understanding and reasoning pattern learning.
@@ -400,7 +502,11 @@ def store_lesson(case_id: str, complaint: str, ai_result: Triage, doctor_result:
         
         # Generate embeddings
         try:
-            complaint_embedding = embedding_model.embed_query(complaint)
+            # INTEGRATION: Translate to English for robust embedding
+            complaint_english = translate_to_english(complaint)
+            
+            # Embed the ENGLISH version for better retrieval consistency
+            complaint_embedding = embedding_model.embed_query(complaint_english)
             lesson_embedding = embedding_model.embed_query("; ".join(clues))
             doctor_notes_embedding = embedding_model.embed_query(doctor_notes) if doctor_notes else None
             
@@ -416,7 +522,9 @@ def store_lesson(case_id: str, complaint: str, ai_result: Triage, doctor_result:
         lesson_doc = {
             "case_id": case_id,
             "timestamp": datetime.now(),
+            "timestamp": datetime.now(),
             "complaint_text": complaint,
+            "complaint_translation": complaint_english,  # Store English version
             "complaint_embedding": complaint_embedding,  # For complaint-based retrieval
             "lesson_embedding": lesson_embedding,  # For lesson-based retrieval
             "doctor_notes_embedding": doctor_notes_embedding,  # For semantic notes retrieval
@@ -594,10 +702,11 @@ Score:"""
         print(f"⚠️  LLM relevance check failed: {e}")
         return 0.5  # Neutral score on failure
 
-def get_relevant_lessons(complaint: str, limit: int = 3) -> List[Dict]:
+def get_relevant_lessons(complaint: str, limit: int = 3, translation: Optional[str] = None) -> List[Dict]:
     """
     Retrieve relevant past cases using vector similarity search.
     Enhanced with LLM-based semantic relevance checking and higher threshold for better relevance.
+    Accepts optional 'translation' to avoid re-translating if already available.
     
     Returns:
         List of lesson documents sorted by relevance (with _similarity score)
@@ -621,7 +730,11 @@ def get_relevant_lessons(complaint: str, limit: int = 3) -> List[Dict]:
         # - English: "pain in my hand"
         # All are semantically matched without any translation!
         
-        query_embedding = embedding_model.embed_query(complaint)
+        # STRATEGY UPDATE: Translate to English for better consistency
+        # User reported poor multilingual retrieval, so we standardize on English.
+        # OPTIMIZATION: Use provided translation from Sarvam if available
+        query_english = translation if translation else translate_to_english(complaint)
+        query_embedding = embedding_model.embed_query(query_english)
         query_vec = np.array(query_embedding)
         print(f"✅ Generated multilingual query embedding (dimension: {len(query_embedding)})")
         
@@ -1336,7 +1449,7 @@ def initialize_system():
     # Run RAG verification
     # verify_rag_system()
 
-def analyze_triage(text: str, image_data: Optional[str] = None, language: str = "en") -> Triage:
+def analyze_triage(text: str, image_data: Optional[str] = None, language: str = "en", translation: Optional[str] = None) -> Triage:
     """
     Main triage analysis function.
     Combines:
@@ -1345,8 +1458,8 @@ def analyze_triage(text: str, image_data: Optional[str] = None, language: str = 
     3. Multi-modal input (Text + Image)
     4. Language support (English/Hindi)
     """
-    # 1. Retrieve relevant lessons
-    relevant_lessons = get_relevant_lessons(text)
+    # 1. Retrieve relevant lessons (pass translation to optimize)
+    relevant_lessons = get_relevant_lessons(text, translation=translation)
     
     # 2. Construct dynamic prompt with language instruction
     system_prompt = _construct_system_prompt(relevant_lessons)
@@ -1494,3 +1607,104 @@ def delete_case(case_id: str) -> bool:
     except Exception as e:
         print(f"❌ Error deleting case {case_id}: {e}")
         return False
+
+# ============================================================
+# Clinical Decision Support
+# ============================================================
+
+def generate_clinical_advice(request: ClinicalSupportRequest) -> ClinicalSupportResponse:
+    """
+    Generates clinical decision support suggestions using the LLM.
+    """
+    print(f"🧠 Generating clinical advice for symptoms: {request.symptoms}")
+    
+    parser = PydanticOutputParser(pydantic_object=ClinicalSupportResponse)
+    
+    prompt = PromptTemplate(
+        template="""You are an expert medical AI assistant providing clinical decision support to a doctor.
+        
+        Patient Symptoms/Complaint: {symptoms}
+        Patient History: {history}
+        
+        Based on this information, provide:
+        1. A list of Differential Diagnoses (ordered by likelihood).
+        2. Evidence-based Treatment Protocols or immediate management steps.
+        3. Recommended Lab Tests or investigations to confirm diagnosis.
+        4. A standard medical disclaimer.
+        
+        Be concise, professional, and strictly evidence-based.
+        
+        {format_instructions}
+        """,
+        input_variables=["symptoms", "history"],
+        partial_variables={"format_instructions": parser.get_format_instructions()}
+    )
+    
+    _input = prompt.format_prompt(
+        symptoms=request.symptoms,
+        history=request.history or "Not provided"
+    )
+    
+    try:
+        output = llm.invoke(_input.to_messages())
+        result = parser.parse(output.content)
+        return result
+    except Exception as e:
+        print(f"❌ Error generating clinical advice: {e}")
+        # Return a fallback response
+        return ClinicalSupportResponse(
+            differential_diagnosis=["Error generating diagnosis"],
+            treatment_protocols=["Please consult standard guidelines."],
+            lab_recommendations=[],
+            disclaimer="AI System Error. Please rely on clinical judgment."
+        )
+
+def analyze_consultation_transcript(request: ConsultationAnalysisRequest) -> ConsultationAnalysisResponse:
+    """
+    Analyzes a consultation transcript to generate SOAP notes and summaries.
+    """
+    print(f"🧠 Analyzing consultation transcript (length: {len(request.transcript)})")
+    
+    parser = PydanticOutputParser(pydantic_object=ConsultationAnalysisResponse)
+    
+    prompt = PromptTemplate(
+        template="""You are an expert medical scribe and AI assistant. 
+        Analyze the following doctor-patient consultation transcript and extract structured clinical information.
+        
+        IMPORTANT: The transcript may be in "Hinglish" (Mixed Hindi and English) or English. 
+        You MUST interpret the Hinglish content accurately and generate the final SOAP note and output strictly in professional ENGLISH.
+        Translate any Hindi terms to their medical English equivalents.
+
+        Transcript:
+        "{transcript}"
+        
+        Patient Context: {context}
+        
+        Produce a structured output containing:
+        1. SOAP Note (Subjective, Objective, Assessment, Plan).
+        2. A simple, non-medical summary for the patient (to be sent via SMS/Email).
+        3. Action Items (prescriptions, referrals, follow-ups).
+        
+        {format_instructions}
+        """,
+        input_variables=["transcript", "context"],
+        partial_variables={"format_instructions": parser.get_format_instructions()}
+    )
+    
+    _input = prompt.format_prompt(
+        transcript=request.transcript,
+        context=request.patient_context or "General Consultation"
+    )
+    
+    try:
+        output = llm.invoke(_input.to_messages())
+        result = parser.parse(output.content)
+        return result
+    except Exception as e:
+        print(f"❌ Error analyzing transcript: {e}")
+        # Fallback
+        return ConsultationAnalysisResponse(
+            soap_note={"Note": "Error processing transcript."},
+            patient_summary="Could not generate summary.",
+            action_items=[]
+        )

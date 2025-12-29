@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Queue</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: white;
+            margin-bottom: 24px;
+            font-size: 2rem;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 16px;
+            font-size: 1.5rem;
+        }
+
+        /* Queue Status */
+        .queue-status {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            text-align: center;
+            padding: 32px;
+            border-radius: 12px;
+        }
+
+        .queue-number {
+            font-size: 4rem;
+            font-weight: bold;
+            margin: 16px 0;
+        }
+
+        .queue-wait {
+            font-size: 1.5rem;
+            margin: 8px 0;
+        }
+
+        .queue-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            margin-top: 16px;
+        }
+
+        /* Appointment List */
+        .apt-item {
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .apt-item.eligible {
+            border-color: #6366f1;
+            background: #f0f4ff;
+        }
+
+        .apt-info {
+            flex: 1;
+        }
+
+        .apt-date {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .apt-doctor {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .apt-time {
+            font-size: 1rem;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .apt-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-right: 12px;
+        }
+
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-accepted {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #6366f1;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #4f46e5;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .ai-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            margin-left: 8px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .back-link {
+            color: white;
+            text-decoration: none;
+            display: inline-block;
+            margin-bottom: 16px;
+            font-size: 0.95rem;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="patient_dashboard.html" class="back-link">← Back to Dashboard</a>
+        <h1>🏥 My Queue</h1>
+
+        <!-- Queue Status -->
+        <div id="queueStatus" style="display:none"></div>
+
+        <!-- Appointments -->
+        <div class="card">
+            <h2>My Appointments</h2>
+            <div id="appointmentsList" class="loading">Loading appointments...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8080';
+        const token = sessionStorage.getItem('token');
+        let currentQueueApt = null;
+
+        async function loadAppointments() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/patient/me/appointments/detailed`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!res.ok) throw new Error('Failed to load appointments');
+
+                const appointments = await res.json();
+                displayAppointments(appointments);
+
+                // Check for checked-in appointments
+                const checkedIn = appointments.find(apt => apt.status === 'accepted');
+                if (checkedIn) {
+                    checkIfInQueue(checkedIn.id);
+                }
+            } catch (error) {
+                document.getElementById('appointmentsList').innerHTML =
+                    `<p style="color:#dc3545;">Error: ${error.message}</p>`;
+            }
+        }
+
+        function displayAppointments(appointments) {
+            const container = document.getElementById('appointmentsList');
+
+            if (appointments.length === 0) {
+                container.innerHTML = '<p style="color:#666;">No appointments found.</p>';
+                return;
+            }
+
+            const now = new Date();
+            const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+            let html = '';
+            appointments.forEach(apt => {
+                const date = new Date(apt.date_time || apt.created_at);
+                const isEligible = apt.status === 'accepted' && date >= now && date <= tomorrow;
+
+                const dateStr = date.toLocaleDateString('en-US', {
+                    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+                });
+                const timeStr = date.toLocaleTimeString('en-US', {
+                    hour: '2-digit', minute: '2-digit'
+                });
+
+                let statusClass = 'status-' + apt.status.toLowerCase();
+                let statusText = apt.status_display || apt.status;
+
+                html += `
+                    <div class="apt-item ${isEligible ? 'eligible' : ''}">
+                        <div class="apt-info">
+                            <div class="apt-date">${dateStr}</div>
+                            <div class="apt-doctor">Dr. ${apt.doctor_name}${apt.booking_source === 'ai' ? '<span class="ai-badge">AI Booked</span>' : ''}</div>
+                            <div class="apt-time">⏰ ${timeStr}</div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <span class="${statusClass} apt-status">${statusText}</span>
+                            ${isEligible ? `<button class="btn btn-primary" onclick="checkIn(${apt.id})">Check In</button>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        async function checkIn(appointmentId) {
+            try {
+                const res = await fetch(`${API_BASE_URL}/queue/check-in/${appointmentId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!res.ok) throw new Error('Check-in failed');
+
+                currentQueueApt = appointmentId;
+                loadQueueStatus(appointmentId);
+
+                // Start polling
+                setInterval(() => loadQueueStatus(appointmentId), 10000); // Every 10s
+            } catch (error) {
+                alert('Check-in failed: ' + error.message);
+            }
+        }
+
+        async function checkIfInQueue(appointmentId) {
+            try {
+                const res = await fetch(`${API_BASE_URL}/queue/status/${appointmentId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!res.ok) return;
+
+                const data = await res.json();
+                if (data.checked_in) {
+                    currentQueueApt = appointmentId;
+                    displayQueueStatus(data);
+                    setInterval(() => loadQueueStatus(appointmentId), 10000);
+                }
+            } catch (e) { }
+        }
+
+        async function loadQueueStatus(appointmentId) {
+            try {
+                const res = await fetch(`${API_BASE_URL}/queue/status/${appointmentId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!res.ok) return;
+
+                const data = await res.json();
+                displayQueueStatus(data);
+            } catch (e) { }
+        }
+
+        function displayQueueStatus(data) {
+            const container = document.getElementById('queueStatus');
+
+            if (!data.checked_in) {
+                container.style.display = 'none';
+                return;
+            }
+
+            let statusBadge = 'Waiting';
+            if (data.status === 'in_progress') statusBadge = '🎯 Your Turn!';
+            else if (data.status === 'delayed') statusBadge = '⏱️ Delayed';
+
+            container.innerHTML = `
+                <div class="card queue-status">
+                    <div style="font-size:1.2rem; opacity:0.9;">Your Position</div>
+                    <div class="queue-number">#${data.queue_position}</div>
+                    <div class="queue-wait">⏱️ ${data.estimated_wait_minutes} min wait</div>
+                    <div class="queue-badge">${statusBadge}</div>
+                    ${data.doctor_delay_minutes > 0 ? `<div style="margin-top:16px; opacity:0.9;">Doctor running ${data.doctor_delay_minutes} min late</div>` : ''}
+                </div>
+            `;
+            container.style.display = 'block';
+        }
+
+        // Initial load
+        if (!token) {
+            window.location.href = 'login.html';
+        } else {
+            loadAppointments();
+        }
+    </script>
+</body>
+
+</html>

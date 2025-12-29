@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Architecture Diagram</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .controls {
+            background: #f8f9fa;
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .btn-secondary:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .content {
+            padding: 40px;
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+
+        .diagram-section {
+            background: #fafafa;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .diagram-wrapper {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            transform-origin: center;
+            transition: transform 0.3s;
+        }
+
+        .steps-section {
+            margin-top: 30px;
+        }
+
+        .steps-section h2 {
+            color: #667eea;
+            font-size: 24px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .step-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .step-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 3px 15px rgba(0, 0, 0, 0.1);
+            border-left: 5px solid;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .step-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .flow1 {
+            border-left-color: #ff6b6b;
+            background: linear-gradient(135deg, #fff 0%, #ffe8e8 100%);
+        }
+
+        .flow2 {
+            border-left-color: #4ecdc4;
+            background: linear-gradient(135deg, #fff 0%, #e0f7f5 100%);
+        }
+
+        .flow3 {
+            border-left-color: #ffe66d;
+            background: linear-gradient(135deg, #fff 0%, #fff9e6 100%);
+        }
+
+        .step-number {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 40px;
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .step-content h4 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .step-content p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .step-tech {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+            margin-top: 10px;
+        }
+
+        .ai-agents {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 30px;
+            border-radius: 15px;
+            margin-top: 30px;
+        }
+
+        .ai-agents h2 {
+            color: #2c3e50;
+            font-size: 24px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .agent-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 3px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .agent-card h3 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 15px;
+            font-weight: 600;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .agent-card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .agent-card li {
+            color: #666;
+            padding: 8px 0;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .agent-card li::before {
+            content: "→ ";
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .zoom-indicator {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            z-index: 1000;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>AI Agent Architecture</h1>
+            <p>Telehealth Triage System - Simplified Flow Diagram</p>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="downloadPNG()">Download PNG</button>
+            <button class="btn btn-primary" onclick="downloadSVG()">Download SVG</button>
+            <button class="btn btn-secondary" onclick="zoomIn()">Zoom In</button>
+            <button class="btn btn-secondary" onclick="zoomOut()">Zoom Out</button>
+            <button class="btn btn-secondary" onclick="resetZoom()">Reset</button>
+        </div>
+
+        <div class="content">
+            <div class="diagram-section">
+                <div class="diagram-wrapper" id="diagramWrapper">
+                    <div class="mermaid">
+                        graph LR
+                        %% Clean professional styling
+                        classDef user fill:#e3f2fd,stroke:#1976d2,stroke-width:3px
+                        classDef ai fill:#e8f5e9,stroke:#388e3c,stroke-width:3px
+                        classDef db fill:#fce4ec,stroke:#c2185b,stroke-width:3px
+                        classDef process fill:#fff9c4,stroke:#fbc02d,stroke-width:2px
+
+                        %% Main Flow
+                        User[USER]:::user
+
+                        %% Step 1: Audio
+                        User -->|Audio| Sarvam[SARVAM AI<br />Speech-to-Text]:::ai
+                        Sarvam -->|Text| API[API Gateway]:::process
+
+                        %% Step 2: Main Flow
+                        User -->|Symptoms| API
+                        API --> Orch[ORCHESTRATOR]:::process
+
+                        %% Step 3: Search
+                        Orch --> RAG[SEARCH<br />Past Cases]:::process
+                        RAG <--> Cohere[COHERE<br />Embeddings]:::ai
+                            RAG <--> Mini[GPT-4o-mini<br />Filter]:::ai
+                                RAG --> Orch
+
+                                %% Step 4: Diagnosis
+                                Orch --> GPT[GPT-4o<br />Dr. AIDEN]:::ai
+                                GPT -->|Diagnosis| Orch
+
+                                %% Step 5: Result
+                                Orch --> API
+                                API -->|Assessment| User
+
+                                %% Step 6: Storage
+                                Orch -.Save.-> DB1[(Cases Database)]:::db
+
+                                %% Step 7: Learning
+                                User -->|Correction| API
+                                API --> Learn[LEARNING<br />System]:::process
+                                Learn --> GPT
+                                GPT -->|Insights| Learn
+                                Learn --> Cohere
+                                Learn -.Store.-> DB2[(Memory Database)]:::db
+                                DB2 -.-> RAG
+                    </div>
+                </div>
+            </div>
+
+            <div class="steps-section">
+                <h2>How The System Works - 6 Steps</h2>
+                <div class="step-grid">
+                    <div class="step-card flow1">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h4>Audio Input (Optional)</h4>
+                            <p>Patient speaks symptoms in Hindi/Hinglish</p>
+                            <p><strong>Sarvam AI</strong> converts speech to text and translates</p>
+                            <div class="step-tech">Multilingual Support</div>
+                        </div>
+                    </div>
+
+                    <div class="step-card flow2">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h4>Patient Describes Symptoms</h4>
+                            <p>Text description or image sent to API Gateway</p>
+                            <p>Request routed to <strong>Orchestrator</strong> for processing</p>
+                            <div class="step-tech">Supports Text & Images</div>
+                        </div>
+                    </div>
+
+                    <div class="step-card flow2">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h4>Search Similar Past Cases</h4>
+                            <p><strong>Cohere</strong> creates semantic embeddings of symptoms</p>
+                            <p><strong>GPT-4o-mini</strong> filters and ranks relevant matches</p>
+                            <div class="step-tech">RAG: Retrieval-Augmented Generation</div>
+                        </div>
+                    </div>
+
+                    <div class="step-card flow2">
+                        <div class="step-number">4</div>
+                        <div class="step-content">
+                            <h4>AI Diagnosis</h4>
+                            <p><strong>Dr. AIDEN (GPT-4o)</strong> analyzes:</p>
+                            <p>• Current patient symptoms<br>• Relevant past cases<br>• Medical knowledge base</p>
+                            <div class="step-tech">Context-Aware Medical Triage</div>
+                        </div>
+                    </div>
+
+                    <div class="step-card flow2">
+                        <div class="step-number">5</div>
+                        <div class="step-content">
+                            <h4>Return Assessment</h4>
+                            <p>Patient receives complete assessment:</p>
+                            <p>• Recommended specialist<br>• Severity level (1-5)<br>• Clinical notes and reasoning</p>
+                            <div class="step-tech">Saved to Database</div>
+                        </div>
+                    </div>
+
+                    <div class="step-card flow3">
+                        <div class="step-number">6</div>
+                        <div class="step-content">
+                            <h4>Doctor Correction & Learning</h4>
+                            <p>Doctor reviews and corrects AI assessment</p>
+                            <p><strong>AI analyzes the mistake</strong>, creates lesson, stores for future use</p>
+                            <div class="step-tech">Continuous Improvement Loop</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ai-agents">
+                <h2>The 4 AI Agents</h2>
+                <div class="agent-grid">
+                    <div class="agent-card">
+                        <h3>1. Sarvam AI</h3>
+                        <ul>
+                            <li>Transcribes Hindi/Hinglish audio to text</li>
+                            <li>Translates to English for processing</li>
+                            <li>Models: Saarika v2.5 (STT) + Saaras v2.5 (Translation)</li>
+                            <li>Optimized for Indian languages</li>
+                        </ul>
+                    </div>
+
+                    <div class="agent-card">
+                        <h3>2. Cohere</h3>
+                        <ul>
+                            <li>Creates semantic vector embeddings</li>
+                            <li>Understands meaning across languages</li>
+                            <li>Model: embed-multilingual-v3.0</li>
+                            <li>Powers the RAG search system</li>
+                        </ul>
+                    </div>
+
+                    <div class="agent-card">
+                        <h3>3. GPT-4o-mini</h3>
+                        <ul>
+                            <li>Fast and cost-effective assistant</li>
+                            <li>Filters search results for relevance</li>
+                            <li>Translates text when needed</li>
+                            <li>Semantic relevance checking</li>
+                        </ul>
+                    </div>
+
+                    <div class="agent-card">
+                        <h3>4. GPT-4o (Dr. AIDEN)</h3>
+                        <ul>
+                            <li>Main medical triage engine</li>
+                            <li>Makes specialist recommendations</li>
+                            <li>Assigns severity levels</li>
+                            <li>Learns from doctor corrections</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="zoom-indicator" id="zoomIndicator">Zoom: 100%</div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' }
+        });
+
+        let currentZoom = 1;
+        const zoomStep = 0.15;
+
+        function updateZoom() {
+            const wrapper = document.getElementById('diagramWrapper');
+            wrapper.style.transform = `scale(${currentZoom})`;
+            document.getElementById('zoomIndicator').textContent = `Zoom: ${Math.round(currentZoom * 100)}%`;
+        }
+
+        function zoomIn() { if (currentZoom < 3) { currentZoom += zoomStep; updateZoom(); } }
+        function zoomOut() { if (currentZoom > 0.5) { currentZoom -= zoomStep; updateZoom(); } }
+        function resetZoom() { currentZoom = 1; updateZoom(); }
+
+        async function downloadPNG() {
+            const wrapper = document.getElementById('diagramWrapper');
+            const orig = wrapper.style.transform;
+            wrapper.style.transform = 'scale(1)';
+
+            const canvas = await html2canvas(wrapper, { backgroundColor: '#fff', scale: 2 });
+            const link = document.createElement('a');
+            link.download = 'ai-architecture-diagram.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+
+            wrapper.style.transform = orig;
+        }
+
+        function downloadSVG() {
+            const svg = document.querySelector('.mermaid svg');
+            if (!svg) { alert('Wait for diagram to load!'); return; }
+
+            const blob = new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' });
+            const link = document.createElement('a');
+            link.download = 'ai-architecture-diagram.svg';
+            link.href = URL.createObjectURL(blob);
+            link.click();
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === '+' || e.key === '=') zoomIn();
+            else if (e.key === '-') zoomOut();
+            else if (e.key === '0') resetZoom();
+        });
+    </script>
+</body>
+
+</html>

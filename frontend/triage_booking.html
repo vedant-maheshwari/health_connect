@@ -5,6 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Smart Wound Triage & Booking</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     :root {
       --primary: #4f46e5;
@@ -174,6 +175,24 @@
     .hidden {
       display: none;
     }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+      }
+
+      70% {
+        box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+      }
+    }
+
+    .pulse-animation {
+      animation: pulse 1.5s infinite;
+    }
   </style>
 </head>
 
@@ -186,6 +205,14 @@
 
     <h1 style="margin-bottom: 30px;">Wound Analysis & Priority Booking</h1>
 
+    <!-- Family Context Banner -->
+    <div id="familyContextBanner" class="hidden"
+      style="background:#e3f2fd; padding:15px; border-radius:8px; margin-bottom:20px; border-left:4px solid #1976d2;">
+      <strong>Booking for Family Member:</strong> <span id="patientContextName"></span>
+      <button onclick="clearFamilyContext()"
+        style="float:right; background:none; border:1px solid #999; padding:4px 8px; border-radius:4px; cursor:pointer;">Cancel</button>
+    </div>
+
     <!-- Step 1: Triage -->
     <div class="card" id="step1">
       <div class="step-header">
@@ -193,8 +220,14 @@
         <div class="step-title">Describe & Analyze Wound</div>
       </div>
 
-      <textarea id="symptoms" placeholder="Describe the pain, bleeding, or other symptoms..."
-        style="width:100%; padding:12px; border:1px solid #d1d5db; border-radius:8px; margin-bottom:16px; min-height:100px; font-family:inherit;"></textarea>
+      <div style="position:relative; margin-bottom:16px;">
+        <textarea id="symptoms" placeholder="Describe the pain, bleeding, or other symptoms... (or click Mic to speak)"
+          style="width:100%; padding:12px; padding-right:50px; border:1px solid #d1d5db; border-radius:8px; min-height:100px; font-family:inherit;"></textarea>
+        <button id="btn-mic" onclick="toggleRecording()"
+          style="position:absolute; bottom:10px; right:10px; background:transparent; border:none; color:#6b7280; font-size:20px; cursor:pointer; padding:5px; border-radius:50%; width:35px; height:35px; display:flex; align-items:center; justify-content:center; transition:all 0.2s;">
+          <i class="fa-solid fa-microphone"></i>
+        </button>
+      </div>
 
       <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
         <p>📁 Click to upload wound image (or drag & drop)</p>
@@ -277,7 +310,7 @@
           Doctor</button>
         <button onclick="confirmAutoBook()"
           style="flex:1;padding:10px;border:none;background:#4f46e5;color:white;border-radius:8px;cursor:pointer;font-weight:bold;">OK,
-          Confirm</button>
+          Confirm Booking (Fixed)</button>
       </div>
     </div>
   </div>
@@ -293,7 +326,131 @@
     let selectedSlot = null;
     let autoProposal = null; // Store proposed slot
 
+    // VOICE RECORDING LOGIC
+    let mediaRecorder;
+    let audioChunks = [];
+    let isRecording = false;
+
+    async function toggleRecording() {
+      const btn = document.getElementById('btn-mic');
+
+      if (!isRecording) {
+        // Start Recording
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+          // Robust MIME type detection (from Doctor Dashboard)
+          const mimeTypes = [
+            'audio/webm;codecs=opus',
+            'audio/webm',
+            'audio/mp4',
+            'audio/ogg'
+          ];
+          let options = {};
+          for (let type of mimeTypes) {
+            if (MediaRecorder.isTypeSupported(type)) {
+              options = { mimeType: type };
+              break;
+            }
+          }
+
+          mediaRecorder = new MediaRecorder(stream, options);
+          audioChunks = [];
+
+          mediaRecorder.ondataavailable = event => {
+            audioChunks.push(event.data);
+          };
+
+          mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+            await transcribeAudio(audioBlob);
+          };
+
+          mediaRecorder.start();
+          isRecording = true;
+
+          // UI: Active State
+          btn.style.color = '#ef4444'; // Red
+          btn.style.background = '#fee2e2';
+          btn.innerHTML = '<i class="fa-solid fa-stop"></i>'; // Stop icon
+          btn.classList.add('pulse-animation'); // Add visual pulse
+          document.getElementById('symptoms').placeholder = "Listening... Speak now...";
+
+        } catch (err) {
+          console.error("Mic Error:", err);
+          alert("Could not access microphone. Please check permissions.");
+        }
+      } else {
+        // Stop Recording
+        mediaRecorder.stop();
+        isRecording = false;
+
+        // UI: Processing State
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        btn.style.color = '#4f46e5';
+        btn.style.background = 'transparent';
+      }
+    }
+
+    async function transcribeAudio(blob) {
+      const btn = document.getElementById('btn-mic');
+      const formData = new FormData();
+
+      // Determine extension based on mimeType
+      const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
+      formData.append('file', blob, `voice_input.${ext}`);
+      formData.append('language', 'hi-IN'); // Default to Hinglish/Hindi as requested
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/triage/transcribe`, {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token },
+          body: formData
+        });
+
+        if (!res.ok) throw new Error("Transcription failed");
+
+        const data = await res.json();
+        const text = data.transcript || data.text;
+        const translation = data.translation || "";
+
+        // Append text
+        const area = document.getElementById('symptoms');
+        const spacer = area.value ? ' ' : '';
+        area.value += spacer + text;
+
+        // Optimize: Store translation to send to backend (avoiding re-translation)
+        if (translation) {
+          area.dataset.translation = translation;
+        }
+
+      } catch (e) {
+        console.error(e);
+        alert("Voice transcription failed. Please try typing.");
+      } finally {
+        // Restore UI
+        btn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+        btn.style.color = '#6b7280';
+        btn.classList.remove('pulse-animation');
+        document.getElementById('symptoms').placeholder = "Describe the pain, bleeding, or other symptoms... (or click Mic to speak)";
+      }
+    }
+
     let currentUser = null;
+    let familyPatientContext = null;
+
+    // Check for family context (if family member is booking for patient)
+    const triageForPatientData = sessionStorage.getItem('triageForPatient');
+    if (triageForPatientData) {
+      familyPatientContext = JSON.parse(triageForPatientData);
+      document.getElementById('familyContextBanner').classList.remove('hidden');
+      document.getElementById('patientContextName').textContent = familyPatientContext.patientName;
+    }
+
+    function clearFamilyContext() {
+      sessionStorage.removeItem('triageForPatient');
+      window.location.href = 'family_dashboard.html';
+    }
 
     // Fetch user details immediately
     fetch(`${API_BASE_URL}/user/me`, {
@@ -329,6 +486,12 @@
       const formData = new FormData();
       if (desc) formData.append('description', desc);
       if (file) formData.append('image', file);
+
+      // Pass optimization translation
+      const storedTranslation = document.getElementById('symptoms').dataset.translation;
+      if (storedTranslation) {
+        formData.append('translation', storedTranslation);
+      }
 
       // Pass patient_id so history works
       if (currentUser) {
@@ -543,15 +706,22 @@
       const modal = document.getElementById('autoBookModal');
       modal.classList.add('hidden');
       modal.style.display = 'none';
-      _executeBooking(autoProposal.doctor_id, `${autoProposal.date}T${autoProposal.time}`);
+      const dateStr = (autoProposal.date || "").trim();
+      const timeStr = (autoProposal.time || "").trim();
+      if (!dateStr || !timeStr) {
+        alert("Invalid date/time from server");
+        return;
+      }
+      _executeBooking(autoProposal.doctor_id, `${dateStr}T${timeStr}`);
     }
 
     async function _executeBooking(docId, dateTime) {
       const payload = {
         doctor_id: parseInt(docId),
-        appointment_date: dateTime,
+        appointment_date: new Date(dateTime).toISOString(),
         severity: currentAnalysis.severity,
-        triage_id: currentAnalysis.assessment_id
+        triage_id: currentAnalysis.assessment_id,
+        booking_source: 'ai'
       };
 
       try {

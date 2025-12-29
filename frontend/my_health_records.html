@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Health Records</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            margin: 0;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 24px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        select,
+        input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            background: #667eea;
+            color: white;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+            border-left: 2px solid #e0e0e0;
+            margin-left: 20px;
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 25px;
+        }
+
+        .timeline-dot {
+            position: absolute;
+            left: -36px;
+            top: 0;
+            width: 12px;
+            height: 12px;
+            background: #667eea;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .record-card {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .doctor-tag {
+            display: inline-block;
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .vitals-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .vital-box {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .vital-value {
+            font-size: 1.4em;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .vital-label {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div class="container">
+            <h1 style="margin:0">My Health Records</h1>
+            <p style="opacity:0.9; margin:5px 0 0 0">Complete medical history from all your doctors</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <div class="filter-bar">
+                <label style="font-weight:500">Filter by Doctor:</label>
+                <select id="doctorFilter" onchange="applyFilters()">
+                    <option value="all">All Doctors</option>
+                </select>
+                <label style="font-weight:500; margin-left:15px">Record Type:</label>
+                <select id="typeFilter" onchange="applyFilters()">
+                    <option value="all">All Records</option>
+                    <option value="notes">Visit Notes Only</option>
+                    <option value="vitals">Vitals Only</option>
+                </select>
+                <button class="btn" onclick="window.location.href='patient_dashboard.html'"
+                    style="margin-left:auto">Back to Dashboard</button>
+            </div>
+        </div>
+
+        <div class="card" id="recordsContainer">
+            <div class="timeline" id="timeline">
+                <div class="empty-state">Loading your health records...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const token = localStorage.getItem('token');
+        if (!token) window.location.href = 'login.html';
+
+        let allRecords = [];
+        let allDoctors = new Set();
+
+        async function loadData() {
+            try {
+                // Get current user ID
+                const userRes = await fetch(`${API_BASE}/user/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const user = await userRes.json();
+                const patientId = user.id;
+
+                // Fetch notes and vitals
+                const [notesRes, vitalsRes] = await Promise.all([
+                    fetch(`${API_BASE}/records/${patientId}/history`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }),
+                    fetch(`${API_BASE}/records/${patientId}/vitals`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                ]);
+
+                const notes = notesRes.ok ? await notesRes.json() : [];
+                const vitals = vitalsRes.ok ? await vitalsRes.json() : [];
+
+                // Combine and sort
+                allRecords = [
+                    ...notes.map(n => ({ ...n, type: 'note', date: new Date(n.created_at) })),
+                    ...vitals.map(v => ({ ...v, type: 'vital', date: new Date(v.recorded_at) }))
+                ].sort((a, b) => b.date - a.date);
+
+                // Extract unique doctors
+                allRecords.forEach(r => {
+                    if (r.doctor_name) allDoctors.add(r.doctor_name);
+                });
+
+                populateDoctorFilter();
+                renderTimeline(allRecords);
+            } catch (e) {
+                console.error(e);
+                document.getElementById('timeline').innerHTML = '<div class="empty-state">Error loading records</div>';
+            }
+        }
+
+        function populateDoctorFilter() {
+            const select = document.getElementById('doctorFilter');
+            allDoctors.forEach(doc => {
+                const opt = document.createElement('option');
+                opt.value = doc;
+                opt.textContent = `Dr. ${doc}`;
+                select.appendChild(opt);
+            });
+        }
+
+        function applyFilters() {
+            const doctorFilter = document.getElementById('doctorFilter').value;
+            const typeFilter = document.getElementById('typeFilter').value;
+
+            let filtered = allRecords;
+
+            if (doctorFilter !== 'all') {
+                filtered = filtered.filter(r => r.doctor_name === doctorFilter);
+            }
+
+            if (typeFilter !== 'all') {
+                filtered = filtered.filter(r => r.type === (typeFilter === 'notes' ? 'note' : 'vital'));
+            }
+
+            renderTimeline(filtered);
+        }
+
+        function renderTimeline(records) {
+            const container = document.getElementById('timeline');
+
+            if (records.length === 0) {
+                container.innerHTML = '<div class="empty-state">No records found. Visit a doctor to start building your health history!</div>';
+                return;
+            }
+
+            const html = records.map(record => {
+                if (record.type === 'note') {
+                    return `
+                        <div class="timeline-item">
+                            <div class="timeline-dot"></div>
+                            <div class="record-card">
+                                <span class="doctor-tag">Dr. ${record.doctor_name}</span>
+                                <div style="color:#666; font-size:0.9em; margin-bottom:8px">${record.date.toLocaleString()}</div>
+                                <div style="font-weight:600; margin-bottom:12px; font-size:1.1em">Visit Summary</div>
+                                <div style="background:white; padding:12px; border-radius:6px; margin-top:8px">
+                                    <div style="margin-bottom:10px"><strong style="color:#667eea">Chief Complaint:</strong> ${record.chief_complaint}</div>
+                                    ${record.subjective ? `<div style="margin-bottom:10px"><strong style="color:#667eea">Your Symptoms:</strong> ${record.subjective}</div>` : ''}
+                                    ${record.objective ? `<div style="margin-bottom:10px"><strong style="color:#667eea">Examination Findings:</strong> ${record.objective}</div>` : ''}
+                                    ${record.assessment ? `<div style="margin-bottom:10px"><strong style="color:#667eea">Diagnosis:</strong> ${record.assessment}</div>` : ''}
+                                    ${record.plan ? `<div style="margin-bottom:10px"><strong style="color:#667eea">Treatment Plan:</strong> ${record.plan}</div>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="timeline-item">
+                            <div class="timeline-dot" style="background:#10b981"></div>
+                            <div class="record-card" style="border-left-color:#10b981">
+                                <span class="doctor-tag" style="background:#d1fae5; color:#047857">Dr. ${record.doctor_name || 'Unknown'}</span>
+                                <div style="color:#666; font-size:0.9em; margin-bottom:8px">${record.date.toLocaleString()}</div>
+                                <div style="font-weight:600; margin-bottom:8px">Vitals Recorded</div>
+                                <div class="vitals-grid">
+                                    ${record.bp_systolic ? `<div class="vital-box"><div class="vital-value">${record.bp_systolic}/${record.bp_diastolic}</div><div class="vital-label">BP (mmHg)</div></div>` : ''}
+                                    ${record.heart_rate ? `<div class="vital-box"><div class="vital-value">${record.heart_rate}</div><div class="vital-label">Heart Rate</div></div>` : ''}
+                                    ${record.temperature ? `<div class="vital-box"><div class="vital-value">${record.temperature}°</div><div class="vital-label">Temp (F)</div></div>` : ''}
+                                    ${record.oxygen_saturation ? `<div class="vital-box"><div class="vital-value">${record.oxygen_saturation}%</div><div class="vital-label">SpO2</div></div>` : ''}
+                                    ${record.weight ? `<div class="vital-box"><div class="vital-value">${record.weight}</div><div class="vital-label">Weight (kg)</div></div>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }).join('');
+
+            container.innerHTML = html;
+        }
+
+        loadData();
+    </script>
+</body>
+
+</html>

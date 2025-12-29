@@ -573,10 +573,17 @@
 
   <!-- Medical Records Modal -->
   <div id="vitalsModal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width:700px;">
       <div class="modal-header">
         <h3 id="vitalsModalTitle">Medical Records</h3>
         <span class="close" onclick="closeModal('vitalsModal')">&times;</span>
+      </div>
+      <div style="margin-bottom:15px; display:flex; gap:15px; align-items:center; flex-wrap:wrap;">
+        <label style="font-weight:500;">Filter by Doctor:</label>
+        <select id="doctorsFilter" onchange="applyDoctorFilter()"
+          style="padding:8px; border-radius:6px; border:1px solid #ddd;">
+          <option value="all">All Doctors</option>
+        </select>
       </div>
       <div id="vitalsContent">Loading...</div>
     </div>
@@ -852,6 +859,10 @@
                 ${!permissions.can_book_appointments ? 'disabled title="No permission to book appointments"' : ''}>
                 Book Appointment
               </button>
+              <button class="btn" style="background:#9c27b0; color:white;" onclick="aiHealthCheckForPatient(${patient.patient_id}, '${patient.patient_name}')"
+                ${!permissions.can_book_appointments ? 'disabled title="No permission"' : ''}>
+                AI Health Check
+              </button>
               ${permissions.can_message_doctor
               ? `<button class="btn btn-warning" onclick="showAndLoadChatRooms(${patient.patient_id})">
                       Load Chat Rooms
@@ -994,29 +1005,54 @@
       }
     }
 
-    // View medical records (vitals) for a patient
+    // View medical records (SOAP notes + vitals) for a patient
     async function viewVitals(patientId, patientName) {
       const modal = document.getElementById('vitalsModal');
       const title = document.getElementById('vitalsModalTitle');
       const content = document.getElementById('vitalsContent');
-      const token = sessionStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
 
       title.textContent = `${patientName}'s Medical Records`;
       content.innerHTML = '<div class="loading-state">Loading medical records...</div>';
       modal.style.display = 'block';
 
-      try {
-        const res = await fetch(
-          `${API_CONFIG.getApiBaseUrl()}${API_CONFIG.endpoints.FAMILY_VITALS}/${patientId}`, {
-          headers: { "Authorization": "Bearer " + token }
-        }
-        );
-        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      // Reset doctor filter
+      const filterSelect = document.getElementById('doctorsFilter');
+      filterSelect.innerHTML = '<option value="all">All Doctors</option>';
+      window.currentMedicalRecords = { notes: [], vitals: [], patientId: patientId };
 
-        const vitals = await res.json();
+      try {
+        // Fetch both SOAP notes and vitals from records service
+        const [notesRes, vitalsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/records/${patientId}/history`, {
+            headers: { "Authorization": "Bearer " + token }
+          }),
+          fetch(`${API_BASE_URL}/records/${patientId}/vitals`, {
+            headers: { "Authorization": "Bearer " + token }
+          })
+        ]);
+
+        const notes = notesRes.ok ? await notesRes.json() : [];
+        const vitals = vitalsRes.ok ? await vitalsRes.json() : [];
+
+        // Store globally for filtering
+        window.currentMedicalRecords.notes = notes;
+        window.currentMedicalRecords.vitals = vitals;
+
+        // Populate doctor filter
+        const doctors = new Set();
+        notes.forEach(n => { if (n.doctor_name) doctors.add(n.doctor_name); });
+        vitals.forEach(v => { if (v.doctor_name) doctors.add(v.doctor_name); });
+        doctors.forEach(doc => {
+          const opt = document.createElement('option');
+          opt.value = doc;
+          opt.textContent = 'Dr. ' + doc;
+          filterSelect.appendChild(opt);
+        });
+
         content.innerHTML = "";
 
-        if (!vitals.length) {
+        if (notes.length === 0 && vitals.length === 0) {
           content.innerHTML = `
             <div class="empty-state">
               <h4>No Medical Records Found</h4>
@@ -1025,25 +1061,52 @@
           return;
         }
 
-        vitals.forEach(vital => {
-          const div = document.createElement("div");
-          div.className = "vital-item";
+        // Show SOAP Notes section
+        if (notes.length > 0) {
+          const notesSection = document.createElement("div");
+          notesSection.innerHTML = `<h4 style="margin-bottom:15px; color:#1976d2;">Visit Notes</h4>`;
+          notes.forEach(note => {
+            const div = document.createElement("div");
+            div.className = "vital-item";
+            div.style.borderLeftColor = "#667eea";
+            const date = new Date(note.created_at).toLocaleString();
+            div.innerHTML = `
+              <div class="vital-date">${date} - Dr. ${note.doctor_name || 'Unknown'}</div>
+              <div class="vital-value"><strong>Chief Complaint:</strong> ${note.chief_complaint}</div>
+              ${note.subjective ? `<div class="vital-value"><strong>S:</strong> ${note.subjective}</div>` : ''}
+              ${note.objective ? `<div class="vital-value"><strong>O:</strong> ${note.objective}</div>` : ''}
+              ${note.assessment ? `<div class="vital-value"><strong>A:</strong> ${note.assessment}</div>` : ''}
+              ${note.plan ? `<div class="vital-value"><strong>P:</strong> ${note.plan}</div>` : ''}
+            `;
+            notesSection.appendChild(div);
+          });
+          content.appendChild(notesSection);
+        }
 
-          const date = new Date(vital.timestamp).toLocaleString();
-          const bp = vital.bp ?? "Not recorded";
-          const hr = vital.heart_rate ?? "Not recorded";
-          const temp = vital.temperature ?? "Not recorded";
-          const notes = vital.notes ?? "No notes";
+        // Show Vitals section
+        if (vitals.length > 0) {
+          const vitalsSection = document.createElement("div");
+          vitalsSection.innerHTML = `<h4 style="margin:20px 0 15px 0; color:#10b981;">Vitals History</h4>`;
+          vitals.forEach(vital => {
+            const div = document.createElement("div");
+            div.className = "vital-item";
+            div.style.borderLeftColor = "#10b981";
+            const date = new Date(vital.recorded_at).toLocaleString();
+            div.innerHTML = `
+              <div class="vital-date">${date} - Dr. ${vital.doctor_name || 'Unknown'}</div>
+              <div style="display:flex; flex-wrap:wrap; gap:15px; margin-top:8px;">
+                ${vital.bp_systolic ? `<div><strong>BP:</strong> ${vital.bp_systolic}/${vital.bp_diastolic}</div>` : ''}
+                ${vital.heart_rate ? `<div><strong>HR:</strong> ${vital.heart_rate} bpm</div>` : ''}
+                ${vital.temperature ? `<div><strong>Temp:</strong> ${vital.temperature}°F</div>` : ''}
+                ${vital.oxygen_saturation ? `<div><strong>SpO2:</strong> ${vital.oxygen_saturation}%</div>` : ''}
+                ${vital.weight ? `<div><strong>Weight:</strong> ${vital.weight} kg</div>` : ''}
+              </div>
+            `;
+            vitalsSection.appendChild(div);
+          });
+          content.appendChild(vitalsSection);
+        }
 
-          div.innerHTML = `
-            <div class="vital-date"><strong>Recorded At:</strong> ${date}</div>
-            <div class="vital-value"><strong>Blood Pressure:</strong> ${bp}</div>
-            <div class="vital-value"><strong>Heart Rate:</strong> ${hr} bpm</div>
-            <div class="vital-value"><strong>Temperature:</strong> ${temp}°F</div>
-            <div class="vital-value"><strong>Notes:</strong> ${notes}</div>
-          `;
-          content.appendChild(div);
-        });
       } catch (error) {
         console.error("Error loading medical records:", error);
         content.innerHTML = `
@@ -1051,6 +1114,69 @@
             <h4>Error Loading Medical Records</h4>
             <p>${error.message}</p>
           </div>`;
+      }
+    }
+
+    // Filter medical records by doctor
+    function applyDoctorFilter() {
+      const selectedDoctor = document.getElementById('doctorsFilter').value;
+      const content = document.getElementById('vitalsContent');
+      let { notes, vitals } = window.currentMedicalRecords;
+
+      if (selectedDoctor !== 'all') {
+        notes = notes.filter(n => n.doctor_name === selectedDoctor);
+        vitals = vitals.filter(v => v.doctor_name === selectedDoctor);
+      }
+
+      content.innerHTML = '';
+
+      if (notes.length === 0 && vitals.length === 0) {
+        content.innerHTML = '<div class="empty-state"><p>No records for this doctor.</p></div>';
+        return;
+      }
+
+      // Render notes
+      if (notes.length > 0) {
+        const notesSection = document.createElement("div");
+        notesSection.innerHTML = '<h4 style="margin-bottom:15px; color:#1976d2;">Visit Notes</h4>';
+        notes.forEach(note => {
+          const div = document.createElement("div");
+          div.className = "vital-item";
+          div.style.borderLeftColor = "#667eea";
+          div.innerHTML = `
+            <div class="vital-date">${new Date(note.created_at).toLocaleString()} - Dr. ${note.doctor_name || 'Unknown'}</div>
+            <div class="vital-value"><strong>Chief Complaint:</strong> ${note.chief_complaint}</div>
+            ${note.subjective ? `<div class="vital-value"><strong>S:</strong> ${note.subjective}</div>` : ''}
+            ${note.objective ? `<div class="vital-value"><strong>O:</strong> ${note.objective}</div>` : ''}
+            ${note.assessment ? `<div class="vital-value"><strong>A:</strong> ${note.assessment}</div>` : ''}
+            ${note.plan ? `<div class="vital-value"><strong>P:</strong> ${note.plan}</div>` : ''}
+          `;
+          notesSection.appendChild(div);
+        });
+        content.appendChild(notesSection);
+      }
+
+      // Render vitals
+      if (vitals.length > 0) {
+        const vitalsSection = document.createElement("div");
+        vitalsSection.innerHTML = '<h4 style="margin:20px 0 15px 0; color:#10b981;">Vitals History</h4>';
+        vitals.forEach(vital => {
+          const div = document.createElement("div");
+          div.className = "vital-item";
+          div.style.borderLeftColor = "#10b981";
+          div.innerHTML = `
+            <div class="vital-date">${new Date(vital.recorded_at).toLocaleString()} - Dr. ${vital.doctor_name || 'Unknown'}</div>
+            <div style="display:flex; flex-wrap:wrap; gap:15px; margin-top:8px;">
+              ${vital.bp_systolic ? `<div><strong>BP:</strong> ${vital.bp_systolic}/${vital.bp_diastolic}</div>` : ''}
+              ${vital.heart_rate ? `<div><strong>HR:</strong> ${vital.heart_rate} bpm</div>` : ''}
+              ${vital.temperature ? `<div><strong>Temp:</strong> ${vital.temperature}°F</div>` : ''}
+              ${vital.oxygen_saturation ? `<div><strong>SpO2:</strong> ${vital.oxygen_saturation}%</div>` : ''}
+              ${vital.weight ? `<div><strong>Weight:</strong> ${vital.weight} kg</div>` : ''}
+            </div>
+          `;
+          vitalsSection.appendChild(div);
+        });
+        content.appendChild(vitalsSection);
       }
     }
 
@@ -1063,6 +1189,17 @@
       }));
 
       window.location.href = 'create_appointment.html';
+    }
+
+    // AI Health Check for patient (redirect to triage_booking.html)
+    function aiHealthCheckForPatient(patientId, patientName) {
+      sessionStorage.setItem('triageForPatient', JSON.stringify({
+        patientId: patientId,
+        patientName: patientName,
+        bookedByFamily: true
+      }));
+
+      window.location.href = 'triage_booking.html';
     }
 
     // Open chat room

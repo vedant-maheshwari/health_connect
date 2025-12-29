@@ -135,7 +135,12 @@
                 const data = await response.json();
                 console.log("Login Response:", data);
 
+                // CLEAR OLD SESSION DATA to prevent role conflicts
+                sessionStorage.clear();
+                localStorage.clear();
+
                 // Save token to localStorage
+                localStorage.setItem("token", data.access_token);
                 sessionStorage.setItem("token", data.access_token);
                 sessionStorage.setItem("role", data.role);
                 sessionStorage.setItem("user_id", data.user_id);
