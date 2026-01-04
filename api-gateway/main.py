@@ -36,6 +36,7 @@ SERVICES = {
     "notification": os.getenv("NOTIFICATION_SERVICE_URL", "http://localhost:8009"),
     "records": os.getenv("RECORDS_SERVICE_URL", "http://records-service:8000"),
     "bsp": os.getenv("BSP_SERVICE_URL", "http://localhost:8012"),
+    "sms": os.getenv("SMS_SERVICE_URL", "http://sms-service:8000"),
 }
 
 # Mount static files (frontend) - uses Docker volume mount
@@ -641,4 +642,13 @@ async def bsp_routes(path: str, request: Request, token: str = Depends(oauth2_sc
     if request.method == "OPTIONS":
         return {}
     return await proxy_request(SERVICES["bsp"], f"/{path}", request, token)
+
+
+@app.api_route("/sms", methods=["POST", "GET", "OPTIONS"])
+async def sms_webhook(request: Request):
+    """SMS webhook route - no auth required (called by external gateway)"""
+    if request.method == "OPTIONS":
+        return {}
+    # SMS webhook doesn't need token - it's called by external SMS gateway
+    return await proxy_request(SERVICES["sms"], "/sms", request)
 

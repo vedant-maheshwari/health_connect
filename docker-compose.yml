@@ -284,7 +284,7 @@ services:
       AUTH_SERVICE_URL: http://auth-service:8000
       APPOINTMENT_SERVICE_URL: http://appointment-service:8000
       DOCTOR_SERVICE_URL: http://doctor-service:8000
-      SMS_GATEWAY_URL: ${SMS_GATEWAY_URL:-http://10.12.147.158:8080/message}
+      SMS_GATEWAY_URL: ${SMS_GATEWAY_URL:-http://172.20.10.14:8080/message}
       SMS_GATEWAY_USERNAME: ${SMS_GATEWAY_USERNAME:-sms}
       SMS_GATEWAY_PASSWORD: ${SMS_GATEWAY_PASSWORD:-DtzZ8GAx}
     ports:

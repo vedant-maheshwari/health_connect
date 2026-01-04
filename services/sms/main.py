@@ -21,7 +21,7 @@ APPOINTMENT_SERVICE = os.getenv("APPOINTMENT_SERVICE_URL", "http://appointment-s
 DOCTOR_SERVICE = os.getenv("DOCTOR_SERVICE_URL", "http://doctor-service:8000")
 
 # SMS Gateway Config (Android SMS Gateway app)
-GATEWAY_URL = os.getenv("SMS_GATEWAY_URL", "http://10.12.147.158:8080/message")
+GATEWAY_URL = os.getenv("SMS_GATEWAY_URL", "http://172.20.10.14:8080/message")
 GATEWAY_USERNAME = os.getenv("SMS_GATEWAY_USERNAME", "sms")
 GATEWAY_PASSWORD = os.getenv("SMS_GATEWAY_PASSWORD", "DtzZ8GAx")
 
@@ -142,16 +142,41 @@ async def handle_status(phone: str, args: str) -> str:
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{APPOINTMENT_SERVICE}/appointments/patient/{user['id']}",
+                f"{APPOINTMENT_SERVICE}/internal/appointments/patient/{user['id']}",
                 timeout=5
             )
             if response.status_code == 200:
                 appointments = response.json()
+                previous_appointments = []
+                
                 if appointments:
                     upcoming = [a for a in appointments if a.get('status') == 'pending']
-                    if upcoming:
-                        apt = upcoming[0]
-                        return f"Next: {apt.get('doctor_name', 'Doctor')}\nDate: {apt.get('date')}\nTime: {apt.get('time')}\nID: {apt.get('id')}"
+                    previous_appointments = [a for a in appointments if a.get('status') != 'pending']
+                    if upcoming or previous_appointments:
+                        msg_lines = ["Your Appointments:"]
+                        count = 0
+                        
+                        # Show upcoming first
+                        for apt in upcoming:
+                            msg_lines.append(f"Upcoming: {apt.get('doctor_name', 'Dr')} ({apt.get('date')} {apt.get('time')}) [ID:{apt.get('id')}]")
+                            count += 1
+                            if count >= 3: # Max 3 upcoming
+                                break
+                        
+                        # Valid status for previous appointments
+                        valid_status = ['completed', 'accepted', 'rejected', 'cancelled']
+                        # Then show recent history
+                        remaining = 5 - count
+                        if remaining > 0:
+                            # Reverse to show most recent first
+                            for apt in reversed(previous_appointments):
+                                if apt.get('status') in valid_status:
+                                    msg_lines.append(f"{apt.get('status').title()}: {apt.get('doctor_name', 'Dr')} ({apt.get('date')})")
+                                    count += 1
+                                    if count >= 5:
+                                        break
+                                
+                        return "\n".join(msg_lines)
                 return "No upcoming appointments."
     except Exception as e:
         print(f"Status error: {e}")
@@ -356,10 +381,30 @@ async def health_check():
 @app.post("/sms")
 async def sms_webhook(request: Request):
     """Receive incoming SMS from gateway and process commands"""
-    data = await request.json()
+    try:
+        # Try JSON first (most common for modern webhooks)
+        data = await request.json()
+    except Exception:
+        # Fallback to form data (common for older SMS gateways)
+        try:
+            form_data = await request.form()
+            # Convert form data to dict for processing
+            data = dict(form_data)
+        except Exception:
+            # Final fallback: read raw body as string (for debugging or simple text)
+            body = await request.body()
+            print(f"[INCOMING SMS] Failed to parse body: {body}")
+            return {"status": "error", "reason": "invalid content type"}
+
+    print(f"[INCOMING SMS] Raw Data: {data}")
     
     event = data.get("event", "")
     payload = data.get("payload", {})
+    
+    # Handle flat structure (some gateways send fields directly)
+    if not payload and ("message" in data or "phoneNumber" in data):
+        payload = data
+        
     message = payload.get("message", "")
     phone = payload.get("phoneNumber", "")
     
@@ -368,7 +413,9 @@ async def sms_webhook(request: Request):
     print(f"[INCOMING SMS] Message: {message}")
     
     # Only process 'sms:received' events
-    if event != "sms:received":
+    # Note: If event is missing but we have phone+message, we might want to process it anyway
+    # but for now, let's stick to the structure unless it's clearly different
+    if event and event != "sms:received":
         print(f"[INCOMING SMS] Ignoring event: {event}")
         return {"status": "ignored", "reason": f"event {event} not processed"}
     

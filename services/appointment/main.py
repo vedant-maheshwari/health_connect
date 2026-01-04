@@ -360,6 +360,7 @@ async def confirm_slot(
         slot_datetime = datetime.fromisoformat(slot_datetime_str)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid datetime format")
+    
     key = make_slot_key(doctor_id, slot_datetime)
     
     # Verify the reservation belongs to this PATIENT
@@ -465,18 +466,11 @@ async def create_appointment(
 ):
     """Create a new appointment"""
     
-    # Timezone Handling:
-    # If date is Naive, assume it is IST (UTC+5:30) and convert to UTC
-    appt_dt = appointment.appointment_date
-    if appt_dt.tzinfo is None:
-        # Subtract 5.5 hours to get UTC from IST
-        appt_dt = appt_dt - timedelta(hours=5, minutes=30)
-        
-    # Create appointment record
+    # Create appointment record (store time as-is in IST)
     db_appointment = models.Appointments(
         patient_id=user_id,
         doctor_id=appointment.doctor_id,
-        date_time=appt_dt,
+        date_time=appointment.appointment_date,
         status=models.Status.PENDING,
         severity=appointment.severity,
         triage_id=appointment.triage_id,
@@ -555,6 +549,40 @@ async def create_appointment_internal(
         "id": db_appointment.id,
         "status": db_appointment.status.value
     }
+
+
+@app.get("/internal/appointments/patient/{patient_id}")
+async def get_patient_appointments_internal(
+    patient_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Internal endpoint to get patient appointments (no JWT required).
+    For SMS service use.
+    """
+    # Verify patient exists
+    patient = db.query(models.User).filter(models.User.id == patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+        
+    # Get appointments
+    appointments = db.query(models.Appointments).filter(
+        models.Appointments.patient_id == patient_id
+    ).order_by(models.Appointments.date_time).all()
+    
+    result = []
+    for app in appointments:
+        doctor = db.query(models.User).filter(models.User.id == app.doctor_id).first()
+        
+        result.append({
+            "id": app.id,
+            "doctor_name": doctor.name if doctor else "Unknown",
+            "date": app.date_time.strftime("%d-%b-%Y"),
+            "time": app.date_time.strftime("%H:%M"),
+            "status": app.status.value
+        })
+        
+    return result
 
 
 @app.get("/get_all_appointments")

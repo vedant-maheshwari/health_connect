@@ -13,11 +13,11 @@ ngrok http 8000 -> on a different terminal
 
 curl -X POST -u sms:DtzZ8GAx \
 -H "Content-Type: application/json" \
--d '{"id":"my-webhook-1","event":"sms:received","url":"https://ce688dbf22bc.ngrok-free.app"}' \
-http://10.12.147.158:8080/webhooks
+-d '{"id":"my-webhook-2","event":"sms:received","url":"https://800965f56f6a.ngrok-free.app/sms"}' \
+http://172.20.10.14:8080/webhooks
 
 in url insert your ngrok link with path /sms
 change the local ip address and port
 change the password
 
-curl -u sms:DtzZ8GAx http://10.12.147.158:8080/webhooks -> to check 
+curl -u sms:DtzZ8GAx http://172.20.10.14:8080/webhooks -> to check 

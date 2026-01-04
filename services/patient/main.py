@@ -132,19 +132,19 @@ async def get_patient_appointments_detailed(
             "triage_data": None  # Will be populated if triage_id exists
         }
         
-        # Robust valid ISO formatting
+        # Robust valid ISO formatting - strip timezone and treat as IST
         def to_iso(dt):
             if not dt: return ""
-            # If naive, assume UTC and append Z
-            if dt.tzinfo is None:
-                return dt.isoformat() + "Z"
+            # Strip timezone info if present, treat time as IST
+            if dt.tzinfo is not None:
+                dt = dt.replace(tzinfo=None)
             return dt.isoformat()
 
         appt_data["created_at"] = to_iso(appt.date_time)
         appt_data["date_time"] = to_iso(appt.date_time)
-        appt_data["appointment_date"] = appt.date_time.strftime("%Y-%m-%d") if appt.date_time else ""
+        appt_data["appointment_date"] = appt.date_time.replace(tzinfo=None).strftime("%Y-%m-%d") if appt.date_time else ""
         # Send raw time string, let frontend handle conversion or format explicitly if needed
-        appt_data["appointment_time"] = appt.date_time.strftime("%H:%M") if appt.date_time else ""
+        appt_data["appointment_time"] = appt.date_time.replace(tzinfo=None).strftime("%H:%M") if appt.date_time else ""
         
         # Fetch triage data if triage_id exists
         if appt.triage_id:
