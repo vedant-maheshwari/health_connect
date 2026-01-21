@@ -878,7 +878,7 @@ async def get_queue_status(
     
     # Check if this appointment is already completed
     if queue_entry.status == models.QueueStatus.COMPLETED:
-        print(f"✅ Appointment {queue_entry.appointment_id} is COMPLETED")
+        print(f"Appointment {queue_entry.appointment_id} is COMPLETED")
         return {
             "checked_in": True,
             "status": "completed",
@@ -887,6 +887,19 @@ async def get_queue_status(
             "doctor_delay_minutes": 0,
             "offer_reschedule": False,
             "message": "Your appointment is complete. Thank you!"
+        }
+    
+    # Check if this appointment was removed from queue
+    if queue_entry.status == models.QueueStatus.REMOVED:
+        print(f"🚫 Appointment {queue_entry.appointment_id} was REMOVED from queue")
+        return {
+            "checked_in": True,
+            "status": "removed",
+            "queue_position": 0,
+            "estimated_wait_minutes": 0,
+            "doctor_delay_minutes": 0,
+            "offer_reschedule": False,
+            "message": "You have been removed from the queue."
         }
 
     # Recalculate position dynamically based on current queue state
@@ -1077,7 +1090,7 @@ async def call_next_patient(
         ).first()
         if appointment:
             appointment.status = models.Status.COMPLETED
-            print(f"✅ Marked appointment {appointment.id} as COMPLETED")
+            print(f"Marked appointment {appointment.id} as COMPLETED")
         
         db.commit()
     

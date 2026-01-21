@@ -1547,12 +1547,10 @@
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const { ws_token } = await res.json();
 
-        let wsUrl;
-        if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-          wsUrl = `ws://127.0.0.1:8006/chats/ws/${currentChatId}?ws_token=${ws_token}`;
-        } else {
-          wsUrl = `wss://${window.location.host}/chats/ws/${currentChatId}?ws_token=${ws_token}`;
-        }
+        // Determine WebSocket protocol based on page protocol
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsHost = window.location.host; // includes hostname:port
+        const wsUrl = `${wsProtocol}//${wsHost}/chats/ws/${currentChatId}?ws_token=${ws_token}`;
 
         wsClient = new WebSocket(wsUrl);
 

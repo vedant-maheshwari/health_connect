@@ -21,7 +21,7 @@ APPOINTMENT_SERVICE = os.getenv("APPOINTMENT_SERVICE_URL", "http://appointment-s
 DOCTOR_SERVICE = os.getenv("DOCTOR_SERVICE_URL", "http://doctor-service:8000")
 
 # SMS Gateway Config (Android SMS Gateway app)
-GATEWAY_URL = os.getenv("SMS_GATEWAY_URL", "http://172.20.10.14:8080/message")
+GATEWAY_URL = os.getenv("SMS_GATEWAY_URL", "http://10.145.250.98:8080/message")
 GATEWAY_USERNAME = os.getenv("SMS_GATEWAY_USERNAME", "sms")
 GATEWAY_PASSWORD = os.getenv("SMS_GATEWAY_PASSWORD", "DtzZ8GAx")
 

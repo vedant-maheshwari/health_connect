@@ -1,0 +1,1537 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HealthConnect API Documentation</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --secondary: #10b981;
+            --bg: #ffffff;
+            --bg-alt: #f9fafb;
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --border: #e5e7eb;
+            --code-bg: #f3f4f6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Roboto', sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            background: var(--bg);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 2rem 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        /* Navigation */
+        nav {
+            background: white;
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 0;
+            position: sticky;
+            top: 100px;
+            z-index: 99;
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+        }
+
+        nav a {
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        nav a:hover {
+            color: var(--primary);
+        }
+
+        /* Main Content */
+        main {
+            padding: 3rem 0;
+        }
+
+        .section {
+            margin-bottom: 4rem;
+        }
+
+        .section-title {
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            color: var(--primary);
+            border-bottom: 3px solid var(--primary);
+            padding-bottom: 0.5rem;
+        }
+
+        .subsection-title {
+            font-size: 1.5rem;
+            margin: 2rem 0 1rem;
+            color: var(--text);
+        }
+
+        /* Service Cards */
+        .service {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .service-header {
+            background: var(--bg-alt);
+            padding: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .service-header:hover {
+            background: #f3f4f6;
+        }
+
+        .service-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .service-port {
+            background: var(--primary);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .service-content {
+            padding: 1.5rem;
+            display: none;
+        }
+
+        .service-content.active {
+            display: block;
+        }
+
+        /* Endpoints */
+        .endpoint {
+            background: var(--bg-alt);
+            border-left: 4px solid var(--primary);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+
+        .endpoint-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .http-method {
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+
+        .method-get {
+            background: var(--success);
+            color: white;
+        }
+
+        .method-post {
+            background: var(--primary);
+            color: white;
+        }
+
+        .method-put {
+            background: var(--warning);
+            color: white;
+        }
+
+        .method-delete {
+            background: var(--error);
+            color: white;
+        }
+
+        .method-ws {
+            background: #8b5cf6;
+            color: white;
+        }
+
+        .endpoint-path {
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .endpoint-desc {
+            color: var(--text-light);
+            margin: 0.5rem 0;
+        }
+
+        /* Code Blocks */
+        .code-block {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+
+        .code-block pre {
+            margin: 0;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        th,
+        td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--bg-alt);
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .badge-auth {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-no-auth {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        /* Mermaid Diagrams */
+        .mermaid {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            margin: 2rem 0;
+        }
+
+        /* Toggle Button */
+        .toggle-icon {
+            transition: transform 0.3s;
+        }
+
+        .toggle-icon.active {
+            transform: rotate(180deg);
+        }
+
+        /* Search */
+        #search {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        #search:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.5rem;
+            }
+
+            nav ul {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .endpoint-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <h1>HealthConnect API Documentation</h1>
+            <p>Complete API reference for all microservices</p>
+        </div>
+    </header>
+
+    <nav>
+        <div class="container">
+            <ul>
+                <li><a href="#overview">Overview</a></li>
+                <li><a href="#auth-guide">Authentication</a></li>
+                <li><a href="#services">Services</a></li>
+                <li><a href="#workflows">Workflows</a></li>
+                <li><a href="#errors">Errors</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <!-- Overview Section -->
+        <section id="overview" class="section">
+            <h2 class="section-title">Overview</h2>
+            <p style="margin-bottom: 1rem;">HealthConnect is a microservices-based telehealth platform with 12
+                independent services communicating via RESTful APIs and WebSockets.</p>
+
+            <h3 class="subsection-title">Base URLs</h3>
+            <table>
+                <tr>
+                    <th>Service</th>
+                    <th>Port</th>
+                    <th>Base URL (Docker)</th>
+                </tr>
+                <tr>
+                    <td>API Gateway</td>
+                    <td>8000</td>
+                    <td><code>http://localhost:8000</code></td>
+                </tr>
+                <tr>
+                    <td>Auth Service</td>
+                    <td>8001</td>
+                    <td><code>http://localhost:8001</code></td>
+                </tr>
+                <tr>
+                    <td>Patient Service</td>
+                    <td>8002</td>
+                    <td><code>http://localhost:8002</code></td>
+                </tr>
+                <tr>
+                    <td>Doctor Service</td>
+                    <td>8003</td>
+                    <td><code>http://localhost:8003</code></td>
+                </tr>
+                <tr>
+                    <td>Appointment Service</td>
+                    <td>8004</td>
+                    <td><code>http://localhost:8004</code></td>
+                </tr>
+                <tr>
+                    <td>Family Service</td>
+                    <td>8005</td>
+                    <td><code>http://localhost:8005</code></td>
+                </tr>
+                <tr>
+                    <td>Chat Service</td>
+                    <td>8006</td>
+                    <td><code>http://localhost:8006</code></td>
+                </tr>
+                <tr>
+                    <td>Admin Service</td>
+                    <td>8007</td>
+                    <td><code>http://localhost:8007</code></td>
+                </tr>
+                <tr>
+                    <td>Wound Triage Service</td>
+                    <td>8008</td>
+                    <td><code>http://localhost:8008</code></td>
+                </tr>
+                <tr>
+                    <td>Notification Service</td>
+                    <td>8009</td>
+                    <td><code>http://localhost:8009</code></td>
+                </tr>
+                <tr>
+                    <td>SMS Gateway</td>
+                    <td>8010</td>
+                    <td><code>http://localhost:8010</code></td>
+                </tr>
+                <tr>
+                    <td>Records Service</td>
+                    <td>8011</td>
+                    <td><code>http://localhost:8011</code></td>
+                </tr>
+                <tr>
+                    <td>BSP Service</td>
+                    <td>8012</td>
+                    <td><code>http://localhost:8012</code></td>
+                </tr>
+            </table>
+
+            <p style="margin-top: 1rem;"><strong>Note:</strong> All requests should go through the API Gateway
+                (<code>:8000</code>) in production. Direct service access is for development only.</p>
+        </section>
+
+        <!-- Authentication Guide -->
+        <section id="auth-guide" class="section">
+            <h2 class="section-title">Authentication Guide</h2>
+
+            <h3 class="subsection-title">JWT Token-Based Authentication</h3>
+            <p>Most endpoints require a JWT (JSON Web Token) for authentication. Here's how to use it:</p>
+
+            <h4 style="margin-top: 1.5rem;">1. Login to Get Token</h4>
+            <div class="code-block">
+                <pre>curl -X POST http://localhost:8000/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=user@example.com&password=yourpassword"</pre>
+            </div>
+
+            <h4 style="margin-top: 1rem;">Response:</h4>
+            <div class="code-block">
+                <pre>{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "role": "PATIENT",
+  "user_id": 123
+}</pre>
+            </div>
+
+            <h4 style="margin-top: 1.5rem;">2. Use Token in Requests</h4>
+            <div class="code-block">
+                <pre>curl -X GET http://localhost:8000/patients/me \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"</pre>
+            </div>
+
+            <h3 class="subsection-title">User Roles</h3>
+            <ul style="margin-left: 2rem;">
+                <li><strong>PATIENT</strong> - Regular patients</li>
+                <li><strong>DOCTOR</strong> - Healthcare providers</li>
+                <li><strong>FAMILY</strong> - Family members/caregivers</li>
+                <li><strong>ADMIN</strong> - System administrators</li>
+            </ul>
+        </section>
+
+        <!-- Services Documentation -->
+        <section id="services" class="section">
+            <h2 class="section-title">API Services</h2>
+            <input type="text" id="search" placeholder="Search endpoints..." />
+
+            <!-- Auth Service -->
+            <div class="service">
+                <div class="service-header" onclick="toggleService(this)">
+                    <div>
+                        <div class="service-title">Auth Service</div>
+                        <p style="color: var(--text-light); margin-top: 0.25rem;">User registration, login, and
+                            authentication</p>
+                    </div>
+                    <span class="service-port">:8001</span>
+                </div>
+                <div class="service-content">
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/register/patient</span>
+                            <span class="badge badge-no-auth">No Auth</span>
+                        </div>
+                        <p class="endpoint-desc">Register a new patient account</p>
+                        <div class="code-block">
+                            <pre>// Request Body
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "password": "securepassword",
+  "date_of_birth": "1990-01-15"
+}</pre>
+                        </div>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/register/doctor</span>
+                            <span class="badge badge-no-auth">No Auth</span>
+                        </div>
+                        <p class="endpoint-desc">Register a new doctor account</p>
+                        <div class="code-block">
+                            <pre>// Request Body
+{
+  "name": "Dr. Sarah Smith",
+  "email": "sarah@example.com",
+  "password": "securepassword",
+  "date_of_birth": "1985-05-20",
+  "medical_license": "MD123456"
+}</pre>
+                        </div>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/token</span>
+                            <span class="badge badge-no-auth">No Auth</span>
+                        </div>
+                        <p class="endpoint-desc">Login and receive JWT access token</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/user/me</span>
+                            <span class="badge badge-auth">Auth Required</span>
+                        </div>
+                        <p class="endpoint-desc">Get current authenticated user information</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/users/{user_id}</span>
+                            <span class="badge badge-no-auth">Internal Use</span>
+                        </div>
+                        <p class="endpoint-desc">Get user by ID (used by other services)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Appointment Service -->
+            <div class="service">
+                <div class="service-header" onclick="toggleService(this)">
+                    <div>
+                        <div class="service-title">Appointment Service</div>
+                        <p style="color: var(--text-light); margin-top: 0.25rem;">Slot management, booking, and
+                            real-time updates</p>
+                    </div>
+                    <span class="service-port">:8004</span>
+                </div>
+                <div class="service-content">
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/available-appointments?doctor_id={id}&app_date={date}</span>
+                            <span class="badge badge-auth">Auth Required</span>
+                        </div>
+                        <p class="endpoint-desc">Get available time slots for a doctor</p>
+                        <div class="code-block">
+                            <pre>// Response
+{
+  "available_slots": [
+    {
+      "slot_datetime": "2026-01-25T10:00:00",
+      "duration_minutes": 30
+    }
+  ]
+}</pre>
+                        </div>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/reserve_slot</span>
+                            <span class="badge badge-auth">Auth Required</span>
+                        </div>
+                        <p class="endpoint-desc">Reserve a slot temporarily (5 minutes hold)</p>
+                        <div class="code-block">
+                            <pre>// Request Body
+{
+  "doctor_id": 1,
+  "slot_datetime": "2026-01-25T10:00:00",
+  "severity": 1
+}
+
+// Response
+{
+  "message": "Slot reserved for 5 minutes",
+  "expires_at": "2026-01-25T10:05:00"
+}</pre>
+                        </div>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/confirm_slot</span>
+                            <span class="badge badge-auth">Auth Required</span>
+                        </div>
+                        <p class="endpoint-desc">Confirm a reserved slot and create appointment</p>
+                        <div class="code-block">
+                            <pre>// Request Body
+{
+  "doctor_id": 1,
+  "slot_datetime": "2026-01-25T10:00:00",
+  "severity": 1,
+  "triage_id": "optional_triage_case_id"
+}</pre>
+                        </div>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/appointments</span>
+                            <span class="badge badge-auth">Auth Required</span>
+                        </div>
+                        <p class="endpoint-desc">Get all appointments for current user</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/appointments/cancel/{appointment_id}</span>
+                            <span class="badge badge-auth">Auth Required</span>
+                        </div>
+                        <p class="endpoint-desc">Cancel an appointment</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-ws">WebSocket</span>
+                            <span class="endpoint-path">/ws/appointments/{doctor_id}</span>
+                        </div>
+                        <p class="endpoint-desc">Real-time appointment updates for doctors</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Doctor Service -->
+            <div class="service">
+                <div class="service-header" onclick="toggleService(this)">
+                    <div>
+                        <div class="service-title">Doctor Service</div>
+                        <p style="color: var(--text-light); margin-top: 0.25rem;">Doctor profiles, availability, and
+                            patient management</p>
+                    </div>
+                    <span class="service-port">:8003</span>
+                </div>
+                <div class="service-content">
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/all_doctors</span>
+                            <span class="badge badge-no-auth">Public</span>
+                        </div>
+                        <p class="endpoint-desc">Get list of all registered doctors</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/doctor/availability</span>
+                            <span class="badge badge-auth">Doctor Only</span>
+                        </div>
+                        <p class="endpoint-desc">Set availability schedule</p>
+                        <div class="code-block">
+                            <pre>// Request Body
+{
+  "day_of_week": "Monday",
+  "start_time": "09:00:00",
+  "end_time": "17:00:00",
+  "slot_duration_minutes": 30
+}</pre>
+                        </div>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/doctor/availability</span>
+                            <span class="badge badge-auth">Auth Required</span>
+                        </div>
+                        <p class="endpoint-desc">Get doctor's availability schedule</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/doctor/vitals</span>
+                            <span class="badge badge-auth">Doctor Only</span>
+                        </div>
+                        <p class="endpoint-desc">Add patient vital signs</p>
+                        <div class="code-block">
+                            <pre>// Request Body
+{
+  "patient_id": 123,
+  "bp_systolic": 120,
+  "bp_diastolic": 80,
+  "heart_rate": 72,
+  "temperature": 98.6,
+  "oxygen_saturation": 98
+}</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Patient Service -->
+            <div class="service">
+                <div class="service-header" onclick="toggleService(this)">
+                    <div>
+                        <div class="service-title">Patient Service</div>
+                        <p style="color: var(--text-light); margin-top: 0.25rem;">Patient profiles, appointments, and
+                            health records</p>
+                    </div>
+                    <span class="service-port">:8002</span>
+                </div>
+                <div class="service-content">
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/me</span>
+                            <span class="badge badge-auth">Patient Only</span>
+                        </div>
+                        <p class="endpoint-desc">Get current patient profile</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/appointments/detailed</span>
+                            <span class="badge badge-auth">Patient Only</span>
+                        </div>
+                        <p class="endpoint-desc">Get detailed appointment history with triage data</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/vitals</span>
+                            <span class="badge badge-auth">Patient Only</span>
+                        </div>
+                        <p class="endpoint-desc">Get patient's vital signs history</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Family Service -->
+            <div class="service">
+                <div class="service-header" onclick="toggleService(this)">
+                    <div>
+                        <div class="service-title">Family Service</div>
+                        <p style="color: var(--text-light); margin-top: 0.25rem;">Family account management and
+                            permissions</p>
+                    </div>
+                    <span class="service-port">:8005</span>
+                </div>
+                <div class="service-content">
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/family/send_invitation</span>
+                            <span class="badge badge-auth">Patient Only</span>
+                        </div>
+                        <p class="endpoint-desc">Send family member invitation</p>
+                        <div class="code-block">
+                            <pre>// Request Body
+{
+  "family_member_email": "family@example.com",
+  "permissions": {
+    "view_records": true,
+    "book_appointments": true,
+    "cancel_appointments": false
+  }
+}</pre>
+                        </div>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/family/respond_invitation</span>
+                            <span class="badge badge-auth">Family Only</span>
+                        </div>
+                        <p class="endpoint-desc">Accept or reject family invitation</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/family/my-patients</span>
+                            <span class="badge badge-auth">Family Only</span>
+                        </div>
+                        <p class="endpoint-desc">Get list of patients this family member can access</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Service -->
+            <div class="service">
+                <div class="service-header" onclick="toggleService(this)">
+                    <div>
+                        <div class="service-title">Chat Service</div>
+                        <p style="color: var(--text-light); margin-top: 0.25rem;">Real-time messaging between patients
+                            and doctors</p>
+                    </div>
+                    <span class="service-port">:8006</span>
+                </div>
+                <div class="service-content">
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/chats/create</span>
+                            <span class="badge badge-auth">Doctor Only</span>
+                        </div>
+                        <p class="endpoint-desc">Create a new chat room</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/chats/my</span>
+                            <span class="badge badge-auth">Auth Required</span>
+                        </div>
+                        <p class="endpoint-desc">Get all chat rooms for current user</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-ws">WebSocket</span>
+                            <span class="endpoint-path">/chats/ws/{chat_id}?ws_token={token}</span>
+                        </div>
+                        <p class="endpoint-desc">WebSocket connection for real-time messaging</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Records Service -->
+            <div class="service">
+                <div class="service-header" onclick="toggleService(this)">
+                    <div>
+                        <div class="service-title">Records Service</div>
+                        <p style="color: var(--text-light); margin-top: 0.25rem;">Clinical notes (SOAP) and vitals
+                            management</p>
+                    </div>
+                    <span class="service-port">:8011</span>
+                </div>
+                <div class="service-content">
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/records/{patient_id}/notes</span>
+                            <span class="badge badge-auth">Doctor Only</span>
+                        </div>
+                        <p class="endpoint-desc">Add SOAP clinical note</p>
+                        <div class="code-block">
+                            <pre>// Request Body
+{
+  "chief_complaint": "Headache",
+  "subjective": "Patient reports severe headache...",
+  "objective": "BP 130/85, Temp 98.6F...",
+  "assessment": "Tension headache",
+  "plan": "Rest, hydration, follow-up in 3 days"
+}</pre>
+                        </div>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/records/{patient_id}/history</span>
+                            <span class="badge badge-auth">Auth Required</span>
+                        </div>
+                        <p class="endpoint-desc">Get full clinical history</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/records/{patient_id}/vitals</span>
+                            <span class="badge badge-auth">Doctor Only</span>
+                        </div>
+                        <p class="endpoint-desc">Log patient vitals</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin Service -->
+            <div class="service">
+                <div class="service-header" onclick="toggleService(this)">
+                    <div>
+                        <div class="service-title">Admin Service</div>
+                        <p style="color: var(--text-light); margin-top: 0.25rem;">System administration, user
+                            management, and analytics</p>
+                    </div>
+                    <span class="service-port">:8007</span>
+                </div>
+                <div class="service-content">
+                    <h4>User Management</h4>
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/admin/users/stats</span>
+                            <span class="badge badge-auth">Admin Only</span>
+                        </div>
+                        <p class="endpoint-desc">Get comprehensive user statistics across all roles</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/admin/users?role={role}&page={page}&limit={limit}</span>
+                            <span class="badge badge-auth">Admin Only</span>
+                        </div>
+                        <p class="endpoint-desc">Get paginated list of users with optional role filtering</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/admin/users/{user_id}/toggle-status</span>
+                            <span class="badge badge-auth">Admin Only</span>
+                        </div>
+                        <p class="endpoint-desc">Enable or disable user account</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-delete">DELETE</span>
+                            <span class="endpoint-path">/admin/users/{user_id}</span>
+                            <span class="badge badge-auth">Admin Only</span>
+                        </div>
+                        <p class="endpoint-desc">Delete user and all related data (cascade delete)</p>
+                    </div>
+
+                    <h4 style="margin-top: 1.5rem;">Appointment Management</h4>
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/admin/appointments/stats</span>
+                            <span class="badge badge-auth">Admin Only</span>
+                        </div>
+                        <p class="endpoint-desc">Get appointment statistics by status</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span
+                                class="endpoint-path">/admin/appointments?status={status}&page={page}&limit={limit}</span>
+                            <span class="badge badge-auth">Admin Only</span>
+                        </div>
+                        <p class="endpoint-desc">Get all appointments with filtering and pagination</p>
+                    </div>
+
+                    <h4 style="margin-top: 1.5rem;">Analytics & Monitoring</h4>
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/admin/analytics?days={days}</span>
+                            <span class="badge badge-auth">Admin Only</span>
+                        </div>
+                        <p class="endpoint-desc">Get comprehensive analytics overview for specified time period</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/admin/logs?limit={limit}&level={level}&hours={hours}</span>
+                            <span class="badge badge-auth">Admin Only</span>
+                        </div>
+                        <p class="endpoint-desc">Get recent system logs with filtering</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/admin/system-health</span>
+                            <span class="badge badge-auth">Admin Only</span>
+                        </div>
+                        <p class="endpoint-desc">System health check and status</p>
+                    </div>
+
+                    <h4 style="margin-top: 1.5rem;">System Settings</h4>
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/admin/settings</span>
+                            <span class="badge badge-auth">Admin Only</span>
+                        </div>
+                        <p class="endpoint-desc">Get current system settings</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-put">PUT</span>
+                            <span class="endpoint-path">/admin/settings</span>
+                            <span class="badge badge-auth">Admin Only</span>
+                        </div>
+                        <p class="endpoint-desc">Update system settings (max appointments, booking advance days, etc.)
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notification Service -->
+            <div class="service">
+                <div class="service-header" onclick="toggleService(this)">
+                    <div>
+                        <div class="service-title">Notification Service</div>
+                        <p style="color: var(--text-light); margin-top: 0.25rem;">Multi-channel notifications (SMS,
+                            Email, WhatsApp)</p>
+                    </div>
+                    <span class="service-port">:8009</span>
+                </div>
+                <div class="service-content">
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/send</span>
+                            <span class="badge badge-no-auth">Internal Use</span>
+                        </div>
+                        <p class="endpoint-desc">Send notification via specified channel(s)</p>
+                        <div class="code-block">
+                            <pre>// Request Body
+{
+  "user_id": 123,
+  "user_contact": "+1234567890",
+  "channel": "all",  // "sms", "email", "whatsapp", or "all"
+  "message": "Your appointment is confirmed",
+  "subject": "Appointment Confirmation",
+  "metadata": {}
+}
+
+// Response
+{
+  "status": "queued",
+  "delivered_channels": ["sms", "email", "whatsapp"],
+  "timestamp": "2026-01-22T00:00:00"
+}</pre>
+                        </div>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/health</span>
+                            <span class="badge badge-no-auth">Public</span>
+                        </div>
+                        <p class="endpoint-desc">Health check endpoint</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Wound Triage Service -->
+            <div class="service">
+                <div class="service-header" onclick="toggleService(this)">
+                    <div>
+                        <div class="service-title">Wound Triage Service (AI)</div>
+                        <p style="color: var(--text-light); margin-top: 0.25rem;">AI-powered medical triage, clinical
+                            support, and learning system</p>
+                    </div>
+                    <span class="service-port">:8008</span>
+                </div>
+                <div class="service-content">
+                    <h4>Patient Portal</h4>
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/triage/assess</span>
+                            <span class="badge badge-no-auth">Public</span>
+                        </div>
+                        <p class="endpoint-desc">Analyze symptoms with AI (accepts text description and/or image)</p>
+                        <div class="code-block">
+                            <pre>// Form Data (multipart/form-data)
+description: "Patient has wound on left leg..."
+image: [file upload]
+patient_id: "PAT_12345"
+language: "en"  // "en", "hi", or "hinglish"
+
+// Response
+{
+  "assessment_id": "507f1f77bcf86cd799439011",
+  "specialty": "Dermatology",
+  "severity": 3,  // 1-5 scale
+  "notes": "Possible cellulitis, requires immediate attention",
+  "confidence": 0.85,
+  "urgency_minutes": 1440,
+  "recommended_action": "Schedule specialist within 1-2 days",
+  "priority": "Moderate"
+}</pre>
+                        </div>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/triage/history?limit={limit}</span>
+                            <span class="badge badge-auth">Auth Required</span>
+                        </div>
+                        <p class="endpoint-desc">Get current user's triage assessment history</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/internal/triage/{case_id}</span>
+                            <span class="badge badge-no-auth">Internal Use</span>
+                        </div>
+                        <p class="endpoint-desc">Get triage case details (used by other services)</p>
+                    </div>
+
+                    <h4 style="margin-top: 1.5rem;">Doctor Review</h4>
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/triage/pending-reviews</span>
+                            <span class="badge badge-auth">Doctor Only</span>
+                        </div>
+                        <p class="endpoint-desc">Get all cases awaiting doctor review</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/triage/case/{case_id}</span>
+                            <span class="badge badge-auth">Auth Required</span>
+                        </div>
+                        <p class="endpoint-desc">Get detailed case information</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/triage/attend/{case_id}</span>
+                            <span class="badge badge-auth">Doctor Only</span>
+                        </div>
+                        <p class="endpoint-desc">Lock case for current doctor (clinical workflow)</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/triage/validate</span>
+                            <span class="badge badge-auth">Doctor Only</span>
+                        </div>
+                        <p class="endpoint-desc">Submit doctor correction and train AI</p>
+                        <div class="code-block">
+                            <pre>// Request Body
+{
+  "case_id": "507f1f77bcf86cd799439011",
+  "correct_specialty": "Orthopedics",
+  "correct_severity": 4,
+  "doctor_notes": "Fractured tibia, requires immediate care"
+}
+
+// Response
+{
+  "status": "validated",
+  "validation_score": 75.5,
+  "changes_made": ["specialty_changed", "severity_increased"]
+}</pre>
+                        </div>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/triage/resolve-and-train</span>
+                            <span class="badge badge-auth">Doctor Only</span>
+                        </div>
+                        <p class="endpoint-desc">Mark case as treated AND submit feedback to train AI</p>
+                    </div>
+
+                    <h4 style="margin-top: 1.5rem;">Clinical Decision Support</h4>
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/triage/clinical-support</span>
+                            <span class="badge badge-auth">Doctor Only</span>
+                        </div>
+                        <p class="endpoint-desc">Get AI-powered differential diagnosis, treatment recommendations, and
+                            lab suggestions</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/triage/consultation/analyze</span>
+                            <span class="badge badge-auth">Doctor Only</span>
+                        </div>
+                        <p class="endpoint-desc">Analyze consultation transcript to generate SOAP notes</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/triage/transcribe</span>
+                            <span class="badge badge-auth">Auth Required</span>
+                        </div>
+                        <p class="endpoint-desc">Transcribe audio file using Sarvam AI (Hinglish voice-to-text)</p>
+                    </div>
+
+                    <h4 style="margin-top: 1.5rem;">Learning Analytics</h4>
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/triage/analytics</span>
+                            <span class="badge badge-auth">Admin Only</span>
+                        </div>
+                        <p class="endpoint-desc">Get comprehensive AI learning analytics and performance metrics</p>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/admin/stats</span>
+                            <span class="badge badge-auth">Admin Only</span>
+                        </div>
+                        <p class="endpoint-desc">Get administrative statistics (cases, reviews, lessons)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BSP Service -->
+            <div class="service">
+                <div class="service-header" onclick="toggleService(this)">
+                    <div>
+                        <div class="service-title">BSP Service (Blood Signal Processing)</div>
+                        <p style="color: var(--text-light); margin-top: 0.25rem;">ECG analysis and atrial fibrillation
+                            detection</p>
+                    </div>
+                    <span class="service-port">:8012</span>
+                </div>
+                <div class="service-content">
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-post">POST</span>
+                            <span class="endpoint-path">/analyze</span>
+                            <span class="badge badge-auth">Auth Required</span>
+                        </div>
+                        <p class="endpoint-desc">Analyze ECG signals from header and data files</p>
+                        <div class="code-block">
+                            <pre>// Form Data (multipart/form-data)
+header_file: [.hea file upload]
+dat_file: [.dat file upload]
+
+// Response
+{
+  "prediction": "AF",  // "AF" or "Normal"
+  "confidence": 0.92,
+  "analysis": "Atrial fibrillation detected",
+  "recommendations": ["Consult cardiologist", "Monitor symptoms"]
+}</pre>
+                        </div>
+                    </div>
+
+                    <div class="endpoint">
+                        <div class="endpoint-header">
+                            <span class="http-method method-get">GET</span>
+                            <span class="endpoint-path">/health</span>
+                            <span class="badge badge-no-auth">Public</span>
+                        </div>
+                        <p class="endpoint-desc">Health check endpoint</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SMS Gateway -->
+            <div class="service">
+                <div class="service-header" onclick="toggleService(this)">
+                    <div>
+                        <div class="service-title">SMS Gateway</div>
+                        <p style="color: var(--text-light); margin-top: 0.25rem;">Offline SMS-based appointment booking
+                        </p>
+                    </div>
+                    <span class="service-port">:8010</span>
+                </div>
+                <div class="service-content">
+                    <h4>Supported SMS Commands:</h4>
+                    <table>
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                            <th>Example</th>
+                        </tr>
+                        <tr>
+                            <td>HELP</td>
+                            <td>List all commands</td>
+                            <td><code>HELP</code></td>
+                        </tr>
+                        <tr>
+                            <td>STATUS</td>
+                            <td>Check upcoming appointments</td>
+                            <td><code>STATUS</code></td>
+                        </tr>
+                        <tr>
+                            <td>DOCTORS</td>
+                            <td>List available doctors</td>
+                            <td><code>DOCTORS</code></td>
+                        </tr>
+                        <tr>
+                            <td>SLOTS</td>
+                            <td>Check available slots</td>
+                            <td><code>SLOTS 1 2026-01-25</code></td>
+                        </tr>
+                        <tr>
+                            <td>BOOK</td>
+                            <td>Book appointment</td>
+                            <td><code>BOOK 1 2026-01-25 10:00</code></td>
+                        </tr>
+                        <tr>
+                            <td>CANCEL</td>
+                            <td>Cancel appointment</td>
+                            <td><code>CANCEL 123</code></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Workflows Section -->
+        <section id="workflows" class="section">
+            <h2 class="section-title">Common Workflows</h2>
+
+            <h3 class="subsection-title">1. Patient Registration & Login</h3>
+            <div class="mermaid">
+                sequenceDiagram
+                participant User
+                participant Gateway as API Gateway
+                participant Auth as Auth Service
+                participant DB as Database
+
+                User->>Gateway: POST /register/patient
+                Gateway->>Auth: Forward registration
+                Auth->>DB: Create user record
+                DB-->>Auth: User created
+                Auth-->>Gateway: Return user data
+                Gateway-->>User: 201 Created
+
+                User->>Gateway: POST /token (login)
+                Gateway->>Auth: Validate credentials
+                Auth->>DB: Check user
+                DB-->>Auth: User found
+                Auth-->>Gateway: JWT token
+                Gateway-->>User: Token + user info
+            </div>
+
+            <h3 class="subsection-title">2. Appointment Booking Flow</h3>
+            <div class="mermaid">
+                sequenceDiagram
+                participant Patient
+                participant Gateway
+                participant Appt as Appointment Service
+                participant Redis
+                participant DB
+
+                Patient->>Gateway: GET /available-appointments
+                Gateway->>Appt: Forward request
+                Appt->>DB: Query available slots
+                DB-->>Appt: Return slots
+                Appt-->>Patient: Available slots list
+
+                Patient->>Gateway: POST /reserve_slot
+                Gateway->>Appt: Reserve slot
+                Appt->>Redis: Set 5-min hold (TTL)
+                Redis-->>Appt: Slot reserved
+                Appt-->>Patient: Reservation confirmed
+
+                Patient->>Gateway: POST /confirm_slot
+                Gateway->>Appt: Confirm reservation
+                Appt->>Redis: Check reservation
+                Appt->>DB: Create appointment
+                DB-->>Appt: Appointment created
+                Appt-->>Patient: Booking confirmed
+            </div>
+
+            <h3 class="subsection-title">3. Family Member Invitation</h3>
+            <div class="mermaid">
+                sequenceDiagram
+                participant Patient
+                participant Family as Family Service
+                participant DB
+                participant FamilyMember as Family Member
+
+                Patient->>Family: POST /send_invitation
+                Family->>DB: Create invitation
+                DB-->>Family: Invitation created
+                Family-->>Patient: Invitation sent
+
+                FamilyMember->>Family: GET /invitations
+                Family->>DB: Query invitations
+                DB-->>Family: Pending invitations
+                Family-->>FamilyMember: Show invitations
+
+                FamilyMember->>Family: POST /respond_invitation
+                Family->>DB: Update invitation status
+                Family->>DB: Create family link
+                DB-->>Family: Link created
+                Family-->>FamilyMember: Access granted
+            </div>
+        </section>
+
+        <!-- Error Handling -->
+        <section id="errors" class="section">
+            <h2 class="section-title">Error Handling</h2>
+
+            <h3 class="subsection-title">Standard Error Response</h3>
+            <div class="code-block">
+                <pre>{
+  "detail": "Error message description"
+}</pre>
+            </div>
+
+            <h3 class="subsection-title">Common HTTP Status Codes</h3>
+            <table>
+                <tr>
+                    <th>Code</th>
+                    <th>Meaning</th>
+                    <th>Example</th>
+                </tr>
+                <tr>
+                    <td>200</td>
+                    <td>Success</td>
+                    <td>Request completed successfully</td>
+                </tr>
+                <tr>
+                    <td>201</td>
+                    <td>Created</td>
+                    <td>Resource created (e.g., new user)</td>
+                </tr>
+                <tr>
+                    <td>400</td>
+                    <td>Bad Request</td>
+                    <td>Invalid request parameters</td>
+                </tr>
+                <tr>
+                    <td>401</td>
+                    <td>Unauthorized</td>
+                    <td>Missing or invalid JWT token</td>
+                </tr>
+                <tr>
+                    <td>403</td>
+                    <td>Forbidden</td>
+                    <td>Insufficient permissions</td>
+                </tr>
+                <tr>
+                    <td>404</td>
+                    <td>Not Found</td>
+                    <td>Resource doesn't exist</td>
+                </tr>
+                <tr>
+                    <td>409</td>
+                    <td>Conflict</td>
+                    <td>Slot already booked</td>
+                </tr>
+                <tr>
+                    <td>422</td>
+                    <td>Validation Error</td>
+                    <td>Request data validation failed</td>
+                </tr>
+                <tr>
+                    <td>500</td>
+                    <td>Server Error</td>
+                    <td>Internal service error</td>
+                </tr>
+            </table>
+        </section>
+    </main>
+
+    <footer
+        style="background: var(--bg-alt); padding: 2rem 0; text-align: center; margin-top: 4rem; border-top: 1px solid var(--border);">
+        <div class="container">
+            <p style="color: var(--text-light);">HealthConnect API Documentation | Version 1.0.0</p>
+            <p style="color: var(--text-light); margin-top: 0.5rem;">For support, visit the <a
+                    href="http://localhost:8000/docs" style="color: var(--primary);">interactive API docs</a></p>
+        </div>
+    </footer>
+
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+
+        // Toggle service sections
+        function toggleService(header) {
+            const content = header.nextElementSibling;
+            const icon = header.querySelector('.toggle-icon');
+            content.classList.toggle('active');
+            if (icon) icon.classList.toggle('active');
+        }
+
+        // Search functionality
+        document.getElementById('search').addEventListener('input', function (e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const services = document.querySelectorAll('.service');
+
+            services.forEach(service => {
+                const text = service.textContent.toLowerCase();
+                if (text.includes(searchTerm)) {
+                    service.style.display = 'block';
+                } else {
+                    service.style.display = 'none';
+                }
+            });
+        });
+
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -328,9 +328,7 @@
     // Environment-aware API URL
 
     const API_BASE_URL = API_CONFIG.getApiBaseUrl();
-    const API_BASE_URL_WS = window.location.hostname.includes('azurewebsites.net')
-      ? window.location.host
-      : "localhost:8000";
+    const API_BASE_URL_WS = window.location.host; // Dynamic host detection
 
     const token = sessionStorage.getItem("token") || localStorage.getItem("token");
 

@@ -547,7 +547,7 @@
     }
 
     async function loadHistory() {
-      const res = await fetch(`http://127.0.0.1:8000/chats/${chatId}/messages`, {
+      const res = await fetch(`${API_BASE_URL}/chats/${chatId}/messages`, {
         headers: { "Authorization": "Bearer " + token }
       });
       if (!res.ok) { alert("Failed to load history"); return; }
@@ -557,13 +557,15 @@
 
     // get short-lived ws token, then connect
     async function connectWS() {
-      const tRes = await fetch("http://127.0.0.1:8000/ws-token", {
+      const tRes = await fetch(`${API_BASE_URL}/ws-token`, {
         method: "POST",
         headers: { "Authorization": "Bearer " + token }
       });
       if (!tRes.ok) { alert("Cannot get ws token"); return null; }
       const { ws_token } = await tRes.json();
-      const ws = new WebSocket(`ws://127.0.0.1:8006/chats/ws/${chatId}?ws_token=${ws_token}`);
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsHost = window.location.host;
+      const ws = new WebSocket(`${wsProtocol}//${wsHost}/chats/ws/${chatId}?ws_token=${ws_token}`);
 
       ws.onopen = () => console.log("ws open");
       ws.onmessage = (ev) => {
